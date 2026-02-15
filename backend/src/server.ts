@@ -8,6 +8,7 @@ import savingRoutes from './routes/saving.routes';
 import loanRoutes from './routes/loan.routes';
 import transactionRoutes from './routes/transaction.routes';
 import ussdRoutes from './routes/ussd.routes';
+import adminRoutes from './routes/admin.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
 
@@ -43,6 +44,7 @@ app.use('/api/savings', savingRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/ussd', ussdRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

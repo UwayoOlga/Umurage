@@ -10,9 +10,12 @@ import {
     Banknote,
     History,
     Settings,
-    LogOut
+    LogOut,
+    Shield,
+    Layers
 } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -23,8 +26,15 @@ const navItems = [
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
+const adminNavItems = [
+    { label: "Admin Dashboard", href: "/dashboard/admin", icon: Shield },
+    { label: "User Management", href: "/dashboard/admin/users", icon: Users },
+    { label: "Groups Overview", href: "/dashboard/admin/groups", icon: Layers },
+];
+
 export function Sidebar() {
     const pathname = usePathname();
+    const { user, isAdmin } = useAuth();
 
     return (
         <aside className="hidden md:flex flex-col w-64 h-screen bg-white border-r border-slate-100 fixed left-0 top-0 z-40">
@@ -40,7 +50,7 @@ export function Sidebar() {
                 <p className="text-xs text-slate-400 mt-1">Modern Savings Group</p>
             </div>
 
-            <nav className="flex-1 p-4 space-y-1">
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -59,6 +69,35 @@ export function Sidebar() {
                         </Link>
                     );
                 })}
+
+                {/* Admin Section */}
+                {user && isAdmin() && (
+                    <>
+                        <div className="pt-4 pb-2">
+                            <div className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                Administration
+                            </div>
+                        </div>
+                        {adminNavItems.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={cn(
+                                        "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
+                                        isActive
+                                            ? "bg-purple-50 text-purple-700 shadow-sm"
+                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                    )}
+                                >
+                                    <item.icon className={cn("w-5 h-5", isActive ? "text-purple-600" : "text-slate-400 group-hover:text-slate-600")} />
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
+                    </>
+                )}
             </nav>
 
             <div className="p-4 border-t border-slate-50">
