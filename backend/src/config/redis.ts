@@ -1,30 +1,10 @@
-import { createClient } from 'redis';
-import dotenv from 'dotenv';
+// Redis replaced by SQLite refresh_tokens table.
+// This file is kept as a no-op shim so existing imports don't break.
 
-dotenv.config();
+const redisShim = {
+    setEx: async (_key: string, _ttl: number, _value: string) => { },
+    get: async (_key: string): Promise<string | null> => null,
+    del: async (_key: string) => { },
+};
 
-const redisClient = createClient({
-    socket: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379')
-    }
-});
-
-redisClient.on('connect', () => {
-    console.log('✅ Connected to Redis');
-});
-
-redisClient.on('error', (err) => {
-    console.error('❌ Redis error:', err);
-});
-
-// Connect to Redis
-(async () => {
-    try {
-        await redisClient.connect();
-    } catch (error) {
-        console.error('Failed to connect to Redis:', error);
-    }
-})();
-
-export default redisClient;
+export default redisShim;

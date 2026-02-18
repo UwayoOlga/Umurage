@@ -1,172 +1,117 @@
-import { Request, Response } from 'express';
-import pool from '../config/database';
+import { Response } from 'express';
+import db from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 
-// Get all users with pagination and search
-export const getAllUsers = async (req: AuthRequest, res: Response) => {
+function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// Get all users with optional search/role filter
+export const getAllUsers = (req: AuthRequest, res: Response) => {
     try {
-        const { page = 1, limit = 10, search = '', role = '' } = req.query;
+        const { page = 1, limit = 50, search = '', role = '' } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
-        let query = `
-            SELECT id, phone, name, role, created_at, updated_at
-            FROM users
-            WHERE 1=1
-        `;
-        const queryParams: any[] = [];
-        let paramCount = 1;
-
-        // Add search filter
-        if (search) {
-            query += ` AND (name ILIKE $${paramCount} OR phone ILIKE $${paramCount})`;
-            queryParams.push(`%${search}%`);
-            paramCount++;
-        }
-
-        // Add role filter
-        if (role) {
-            query += ` AND role = $${paramCount}`;
-            queryParams.push(role);
-            paramCount++;
-        }
-
-        // Add pagination
-        query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-        queryParams.push(Number(limit), offset);
-
-        const result = await pool.query(query, queryParams);
-
-        // Get total count for pagination
-        let countQuery = 'SELECT COUNT(*) FROM users WHERE 1=1';
-        const countParams: any[] = [];
-        let countParamNum = 1;
+        let query = 'SELECT id, phone, name, role, created_at, updated_at FROM users WHERE 1=1';
+        const params: any[] = [];
 
         if (search) {
-            countQuery += ` AND (name ILIKE $${countParamNum} OR phone ILIKE $${countParamNum})`;
-            countParams.push(`%${search}%`);
-            countParamNum++;
+            query += ' AND (name LIKE ? OR phone LIKE ?)';
+            params.push(`%${search}%`, `%${search}%`);
         }
-
         if (role) {
-            countQuery += ` AND role = $${countParamNum}`;
-            countParams.push(role);
+            query += ' AND role = ?';
+            params.push(role);
         }
 
-        const countResult = await pool.query(countQuery, countParams);
-        const total = parseInt(countResult.rows[0].count);
+        const countStmt = db.prepare(query.replace('SELECT id, phone, name, role, created_at, updated_at', 'SELECT COUNT(*) as count'));
+        const total = (countStmt.get(...params) as any).count;
+
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        params.push(Number(limit), offset);
+
+        const users = db.prepare(query).all(...params);
 
         res.status(200).json({
             success: true,
             data: {
-                users: result.rows,
-                pagination: {
-                    page: Number(page),
-                    limit: Number(limit),
-                    total,
-                    totalPages: Math.ceil(total / Number(limit))
-                }
+                users,
+                pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) }
             }
         });
     } catch (error) {
         console.error('Get all users error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error fetching users'
-        });
+        res.status(500).json({ success: false, message: 'Server error fetching users' });
     }
 };
 
 // Get user statistics
-export const getUserStats = async (req: AuthRequest, res: Response) => {
+export const getUserStats = (_req: AuthRequest, res: Response) => {
     try {
-        const stats = await pool.query(`
-            SELECT 
+        const stats = db.prepare(`
+            SELECT
                 COUNT(*) as total_users,
-                COUNT(CASE WHEN role = 'admin' THEN 1 END) as total_admins,
-                COUNT(CASE WHEN role = 'member' THEN 1 END) as total_members,
-                COUNT(CASE WHEN role = 'treasurer' THEN 1 END) as total_treasurers,
-                COUNT(CASE WHEN role = 'secretary' THEN 1 END) as total_secretaries,
-                COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_users_30d
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as total_admins,
+                SUM(CASE WHEN role = 'member' THEN 1 ELSE 0 END) as total_members,
+                SUM(CASE WHEN role = 'treasurer' THEN 1 ELSE 0 END) as total_treasurers,
+                SUM(CASE WHEN role = 'secretary' THEN 1 ELSE 0 END) as total_secretaries,
+                SUM(CASE WHEN created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) as new_users_30d
             FROM users
-        `);
+        `).get();
 
-        res.status(200).json({
-            success: true,
-            data: stats.rows[0]
-        });
+        res.status(200).json({ success: true, data: stats });
     } catch (error) {
         console.error('Get user stats error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error fetching user statistics'
-        });
+        res.status(500).json({ success: false, message: 'Server error fetching user statistics' });
     }
 };
 
 // Update user role
-export const updateUserRole = async (req: AuthRequest, res: Response) => {
+export const updateUserRole = (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { role } = req.body;
 
-        // Validate role
         const validRoles = ['member', 'admin', 'treasurer', 'secretary'];
         if (!role || !validRoles.includes(role)) {
             throw new AppError('Invalid role. Must be one of: member, admin, treasurer, secretary', 400);
         }
 
-        // Check if user exists
-        const userCheck = await pool.query('SELECT id, role FROM users WHERE id = $1', [id]);
-        if (userCheck.rows.length === 0) {
-            throw new AppError('User not found', 404);
-        }
+        const userCheck = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
+        if (!userCheck) throw new AppError('User not found', 404);
 
-        // Prevent admin from demoting themselves
         if (req.user?.id === id && role !== 'admin') {
             throw new AppError('You cannot change your own admin role', 403);
         }
 
-        // Update user role
-        const result = await pool.query(
-            'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, phone, name, role, updated_at',
-            [role, id]
-        );
+        const now = new Date().toISOString();
+        db.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').run(role, now, id);
 
-        res.status(200).json({
-            success: true,
-            message: 'User role updated successfully',
-            data: result.rows[0]
-        });
+        const updated = db.prepare('SELECT id, phone, name, role, updated_at FROM users WHERE id = ?').get(id);
+        res.status(200).json({ success: true, message: 'User role updated successfully', data: updated });
     } catch (error) {
         if (error instanceof AppError) {
-            return res.status(error.statusCode).json({
-                success: false,
-                message: error.message
-            });
+            return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         console.error('Update user role error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error updating user role'
-        });
+        res.status(500).json({ success: false, message: 'Server error updating user role' });
     }
 };
 
 // Get all groups with stats
-export const getAllGroups = async (req: AuthRequest, res: Response) => {
+export const getAllGroups = (req: AuthRequest, res: Response) => {
     try {
-        const { page = 1, limit = 10, search = '' } = req.query;
+        const { page = 1, limit = 50, search = '' } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
         let query = `
-            SELECT 
-                g.id,
-                g.name,
-                g.contribution_amount,
-                g.contribution_frequency,
-                g.model_type,
-                g.created_at,
+            SELECT
+                g.id, g.name, g.contribution_amount, g.contribution_frequency, g.model_type, g.created_at,
                 u.name as admin_name,
                 COUNT(DISTINCT m.id) as member_count,
                 COALESCE(SUM(s.amount), 0) as total_savings,
@@ -178,166 +123,102 @@ export const getAllGroups = async (req: AuthRequest, res: Response) => {
             LEFT JOIN loans l ON m.id = l.member_id
             WHERE 1=1
         `;
-        const queryParams: any[] = [];
-        let paramCount = 1;
+        const params: any[] = [];
 
         if (search) {
-            query += ` AND g.name ILIKE $${paramCount}`;
-            queryParams.push(`%${search}%`);
-            paramCount++;
+            query += ' AND g.name LIKE ?';
+            params.push(`%${search}%`);
         }
 
-        query += ` GROUP BY g.id, u.name ORDER BY g.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-        queryParams.push(Number(limit), offset);
+        query += ' GROUP BY g.id, u.name ORDER BY g.created_at DESC LIMIT ? OFFSET ?';
+        params.push(Number(limit), offset);
 
-        const result = await pool.query(query, queryParams);
+        const groups = db.prepare(query).all(...params);
 
-        // Get total count
-        let countQuery = 'SELECT COUNT(*) FROM groups WHERE 1=1';
+        let countQuery = 'SELECT COUNT(*) as count FROM groups WHERE 1=1';
         const countParams: any[] = [];
-
-        if (search) {
-            countQuery += ' AND name ILIKE $1';
-            countParams.push(`%${search}%`);
-        }
-
-        const countResult = await pool.query(countQuery, countParams);
-        const total = parseInt(countResult.rows[0].count);
+        if (search) { countQuery += ' AND name LIKE ?'; countParams.push(`%${search}%`); }
+        const total = (db.prepare(countQuery).get(...countParams) as any).count;
 
         res.status(200).json({
             success: true,
             data: {
-                groups: result.rows,
-                pagination: {
-                    page: Number(page),
-                    limit: Number(limit),
-                    total,
-                    totalPages: Math.ceil(total / Number(limit))
-                }
+                groups,
+                pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) }
             }
         });
     } catch (error) {
         console.error('Get all groups error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error fetching groups'
-        });
+        res.status(500).json({ success: false, message: 'Server error fetching groups' });
     }
 };
 
 // Get group details
-export const getGroupDetails = async (req: AuthRequest, res: Response) => {
+export const getGroupDetails = (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
-        const groupQuery = await pool.query(`
-            SELECT 
-                g.*,
-                u.name as admin_name,
-                u.phone as admin_phone
-            FROM groups g
-            LEFT JOIN users u ON g.admin_id = u.id
-            WHERE g.id = $1
-        `, [id]);
+        const group = db.prepare(`
+            SELECT g.*, u.name as admin_name, u.phone as admin_phone
+            FROM groups g LEFT JOIN users u ON g.admin_id = u.id
+            WHERE g.id = ?
+        `).get(id);
 
-        if (groupQuery.rows.length === 0) {
-            throw new AppError('Group not found', 404);
-        }
+        if (!group) throw new AppError('Group not found', 404);
 
-        // Get members
-        const membersQuery = await pool.query(`
-            SELECT 
-                m.id,
-                m.role,
-                m.joined_at,
-                m.status,
-                u.name,
-                u.phone
-            FROM members m
-            JOIN users u ON m.user_id = u.id
-            WHERE m.group_id = $1
-            ORDER BY m.joined_at DESC
-        `, [id]);
+        const members = db.prepare(`
+            SELECT m.id, m.role, m.joined_at, m.status, u.name, u.phone
+            FROM members m JOIN users u ON m.user_id = u.id
+            WHERE m.group_id = ? ORDER BY m.joined_at DESC
+        `).all(id);
 
-        res.status(200).json({
-            success: true,
-            data: {
-                group: groupQuery.rows[0],
-                members: membersQuery.rows
-            }
-        });
+        res.status(200).json({ success: true, data: { group, members } });
     } catch (error) {
         if (error instanceof AppError) {
-            return res.status(error.statusCode).json({
-                success: false,
-                message: error.message
-            });
+            return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         console.error('Get group details error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error fetching group details'
-        });
+        res.status(500).json({ success: false, message: 'Server error fetching group details' });
     }
 };
 
 // Get system analytics
-export const getSystemAnalytics = async (req: AuthRequest, res: Response) => {
+export const getSystemAnalytics = (_req: AuthRequest, res: Response) => {
     try {
-        // Overall statistics
-        const overallStats = await pool.query(`
-            SELECT 
+        const overall = db.prepare(`
+            SELECT
                 (SELECT COUNT(*) FROM users) as total_users,
                 (SELECT COUNT(*) FROM groups) as total_groups,
                 (SELECT COALESCE(SUM(amount), 0) FROM savings) as total_savings,
                 (SELECT COALESCE(SUM(amount), 0) FROM loans WHERE status IN ('approved', 'disbursed')) as total_loans,
                 (SELECT COUNT(*) FROM members WHERE status = 'active') as active_members,
                 (SELECT COUNT(*) FROM loans WHERE status = 'disbursed') as active_loan_count
-        `);
+        `).get();
 
-        // Recent activity (last 30 days)
-        const recentActivity = await pool.query(`
-            SELECT 
-                COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_users_30d,
-                COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as new_users_7d
+        const recentActivity = db.prepare(`
+            SELECT
+                SUM(CASE WHEN created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) as new_users_30d,
+                SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_users_7d
             FROM users
-        `);
+        `).get();
 
-        // Savings by month (last 6 months)
-        const savingsTrend = await pool.query(`
-            SELECT 
-                TO_CHAR(date, 'YYYY-MM') as month,
-                SUM(amount) as total
-            FROM savings
-            WHERE date >= NOW() - INTERVAL '6 months'
-            GROUP BY TO_CHAR(date, 'YYYY-MM')
-            ORDER BY month DESC
-        `);
+        const savingsTrend = db.prepare(`
+            SELECT strftime('%Y-%m', date) as month, SUM(amount) as total
+            FROM savings WHERE date >= date('now', '-6 months')
+            GROUP BY strftime('%Y-%m', date) ORDER BY month DESC
+        `).all();
 
-        // Loan statistics
-        const loanStats = await pool.query(`
-            SELECT 
-                status,
-                COUNT(*) as count,
-                COALESCE(SUM(amount), 0) as total_amount
-            FROM loans
-            GROUP BY status
-        `);
+        const loanStats = db.prepare(`
+            SELECT status, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount
+            FROM loans GROUP BY status
+        `).all();
 
         res.status(200).json({
             success: true,
-            data: {
-                overall: overallStats.rows[0],
-                recentActivity: recentActivity.rows[0],
-                savingsTrend: savingsTrend.rows,
-                loanStats: loanStats.rows
-            }
+            data: { overall, recentActivity, savingsTrend, loanStats }
         });
     } catch (error) {
         console.error('Get system analytics error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error fetching analytics'
-        });
+        res.status(500).json({ success: false, message: 'Server error fetching analytics' });
     }
 };
