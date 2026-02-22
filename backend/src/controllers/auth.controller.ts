@@ -58,7 +58,7 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({
             success: true,
-            message: 'User registered successfully',
+            message: 'Your account has been created successfully!',
             data: { user: { id: user.id, phone: user.phone, name: user.name, role: user.role }, accessToken, refreshToken }
         });
     } catch (error) {
@@ -66,7 +66,7 @@ export const register = async (req: Request, res: Response) => {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         console.error('Register error:', error);
-        res.status(500).json({ success: false, message: 'Server error during registration' });
+        res.status(500).json({ success: false, message: 'An unexpected error occurred during registration. Please try again.' });
     }
 };
 
@@ -86,7 +86,7 @@ export const login = async (req: Request, res: Response) => {
 
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         if (!isPasswordValid) {
-            throw new AppError('Invalid credentials', 401);
+            throw new AppError('The password you entered is incorrect', 401);
         }
 
         const accessToken = jwt.sign(
@@ -107,7 +107,7 @@ export const login = async (req: Request, res: Response) => {
 
         res.status(200).json({
             success: true,
-            message: 'Login successful',
+            message: `Welcome back, ${user.name}! Login successful.`,
             data: { user: { id: user.id, phone: user.phone, name: user.name, role: user.role }, accessToken, refreshToken }
         });
     } catch (error) {
@@ -115,7 +115,7 @@ export const login = async (req: Request, res: Response) => {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         console.error('Login error:', error);
-        res.status(500).json({ success: false, message: 'Server error during login' });
+        res.status(500).json({ success: false, message: 'An unexpected error occurred while signing in.' });
     }
 };
 

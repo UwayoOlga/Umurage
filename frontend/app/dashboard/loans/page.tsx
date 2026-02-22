@@ -14,12 +14,12 @@ import { cn } from "@/lib/utils";
 
 // Mock Data
 const ACTIVE_LOANS = [
-    { id: 1, borrower: "Jean Uwimana", amount: "500,000 RWF", remaining: "350,000 RWF", nextPayment: "Feb 15, 2024", status: "On Track" },
-    { id: 2, borrower: "Eric Mugisha", amount: "200,000 RWF", remaining: "50,000 RWF", nextPayment: "Feb 10, 2024", status: "Overdue" },
+    { id: 1, borrower: "Jean Uwimana", amount: "500,000 RWF", remaining: "350,000 RWF", nextPayment: "Feb 15, 2026", status: "On Track" },
+    { id: 2, borrower: "Eric Mugisha", amount: "200,000 RWF", remaining: "50,000 RWF", nextPayment: "Feb 10, 2026", status: "Overdue" },
 ];
 
 const LOAN_HISTORY = [
-    { id: 101, borrower: "Marie Mukamana", amount: "100,000 RWF", date: "Jan 10, 2024", status: "Fully Repaid" },
+    { id: 101, borrower: "Marie Mukamana", amount: "100,000 RWF", date: "Jan 10, 2026", status: "Fully Repaid" },
     { id: 102, borrower: "Alice Uwase", amount: "300,000 RWF", date: "Dec 05, 2023", status: "Fully Repaid" },
 ];
 

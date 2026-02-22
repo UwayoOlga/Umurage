@@ -16,6 +16,7 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     // Redirect if already logged in
     useEffect(() => {
@@ -35,8 +36,15 @@ export default function LoginPage() {
 
         setLoading(true);
         try {
-            await login(phone.trim(), password);
-            // Redirect based on role happens via useEffect after user state updates
+            const message = await login(phone.trim(), password);
+            setSuccess(message);
+
+            // Short delay to show the success message before redirect
+            setTimeout(() => {
+                const searchParams = new URLSearchParams(window.location.search);
+                const redirectTo = searchParams.get('redirect') || '/dashboard';
+                // Note: user role redirect is handled by useEffect when user state changes
+            }, 1000);
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your credentials.');
         } finally {
@@ -64,10 +72,17 @@ export default function LoginPage() {
                         <p className="text-slate-400 text-sm mt-1">Sign in to your Umurage account</p>
                     </div>
 
-                    {/* Error */}
+                    {/* Status Messages */}
                     {error && (
-                        <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                        <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm animate-in fade-in slide-in-from-top-1">
                             {error}
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="mb-5 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm animate-in fade-in slide-in-from-top-1 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {success}
                         </div>
                     )}
 
@@ -146,7 +161,7 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <p className="text-center text-slate-600 text-xs mt-6">
-                    © 2024 Umurage Ltd. Built for Rwanda 🇷🇼
+                    © 2026 Umurage Ltd. Built for Rwanda 🇷🇼
                 </p>
             </div>
         </div>

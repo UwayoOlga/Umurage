@@ -16,8 +16,8 @@ interface AuthContextType {
     user: User | null;
     accessToken: string | null;
     loading: boolean;
-    login: (phone: string, password: string) => Promise<void>;
-    register: (phone: string, password: string, name: string) => Promise<void>;
+    login: (phone: string, password: string) => Promise<string>;
+    register: (phone: string, password: string, name: string) => Promise<string>;
     logout: () => void;
     isAdmin: () => boolean;
     isTreasurer: () => boolean;
@@ -69,37 +69,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCookie('user_role', userData.role);
     };
 
-    const login = async (phone: string, password: string) => {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password }),
-        });
+    const login = async (phone: string, password: string): Promise<string> => {
+        try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, password }),
+            });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Login failed');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Login failed. Please check your credentials.');
+            }
 
-        const { user: userData, accessToken: token, refreshToken } = data.data;
-        saveSession(userData, token, refreshToken);
+            const { user: userData, accessToken: token, refreshToken } = data.data;
+            saveSession(userData, token, refreshToken);
 
-        // Role-based redirect
-        router.push(userData.role === 'admin' ? '/dashboard/admin' : '/dashboard');
+            return data.message || 'Login successful';
+        } catch (error: any) {
+            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                throw new Error('Unable to connect to the server. Please check your internet connection.');
+            }
+            throw error;
+        }
     };
 
-    const register = async (phone: string, password: string, name: string) => {
-        const response = await fetch(`${API_URL}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password, name }),
-        });
+    const register = async (phone: string, password: string, name: string): Promise<string> => {
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, password, name }),
+            });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Registration failed');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Registration failed. Please try again.');
+            }
 
-        const { user: userData, accessToken: token, refreshToken } = data.data;
-        saveSession(userData, token, refreshToken);
+            const { user: userData, accessToken: token, refreshToken } = data.data;
+            saveSession(userData, token, refreshToken);
 
-        router.push('/dashboard');
+            return data.message || 'Account created successfully';
+        } catch (error: any) {
+            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                throw new Error('Unable to connect to the server. Please check your internet connection.');
+            }
+            throw error;
+        }
     };
 
     const logout = useCallback(() => {

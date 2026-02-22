@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-**Ibimina** (singular: **Ikimina**) are traditional community-based savings and credit associations in Rwanda that have evolved significantly in recent years. As of 2024-2025, these groups are undergoing a major transformation through digitalization, formal regulation, and integration with Rwanda's formal financial sector, while maintaining their cultural roots and community-focused approach.
+**Ibimina** (singular: **Ikimina**) are traditional community-based savings and credit associations in Rwanda that have evolved significantly in recent years. As of 2026, these groups are undergoing a major transformation through digitalization, formal regulation, and integration with Rwanda's formal financial sector, while maintaining their cultural roots and community-focused approach.
 
 > [!IMPORTANT]
 > Nearly **4 in 10 Rwandans** (approximately 40%) participate in informal savings groups like Ibimina, with over **90,000 Ibimina groups** currently operating across the country. About **2,000 of these groups** now use digital technology platforms.
@@ -46,12 +46,12 @@ Modern Ibimina increasingly adopt structured governance:
 
 ---
 
-## 2. Legal & Regulatory Framework (2024)
+## 2. Legal & Regulatory Framework (2026)
 
 ### New Regulatory Environment
 
 > [!WARNING]
-> In **August 2024**, Rwanda introduced a **Ministerial Order** establishing a comprehensive legal framework for Ibimina, marking a historic shift from informal to regulated operations.
+> In **August 2026**, Rwanda introduced a **Ministerial Order** establishing a comprehensive legal framework for Ibimina, marking a historic shift from informal to regulated operations.
 
 **Key Regulatory Requirements:**
 
@@ -116,7 +116,7 @@ Developed by **ForAfrika** to address traditional challenges:
 - Disputes over contributions and loans
 
 **Expansion Plans:**
-- Target: **82 additional VSLAs** by 2025
+- Target: **82 additional VSLAs** by 2027
 - Potential impact: **2,469+ new members**
 - Nationwide rollout discussions with:
   - Ministry of ICT
@@ -125,10 +125,10 @@ Developed by **ForAfrika** to address traditional challenges:
 
 #### C. Mobile Money Integration
 
-**Current Status (2024):**
+**Current Status (2026):**
 - **91%** of formally included Rwandans use mobile money
 - **73%** of women now use mobile money (up from 55% in 2020)
-- Digital financial inclusion: **66%** (2020) → **70%** (2024)
+- Digital financial inclusion: **66%** (2020) → **70%** (2026)
 
 **Integration Benefits:**
 - Safer fund storage
@@ -186,7 +186,7 @@ Facilitates connections between:
 
 ### Financial Inclusion Achievements
 
-| Metric | 2020 | 2024 | Change |
+| Metric | 2020 | 2026 | Change |
 |--------|------|------|--------|
 | **Formal Financial Inclusion** | 55% | 70% | +15% |
 | **Mobile Money Penetration** | 60% | 91% | +31% |
@@ -241,7 +241,7 @@ Facilitates connections between:
 - Integration of informal and formal savings mechanisms
 - Financial literacy campaigns
 
-**2024 Savings Week:**
+**2026 Savings Week:**
 - Theme: **"Save-Invest-Prosper"**
 - Promotion of various savings products
 - Increased financial literacy initiatives
@@ -296,7 +296,7 @@ Despite progress, some women face:
 
 ## 8. Current Trends & Future Outlook
 
-### Emerging Trends (2024-2025)
+### Emerging Trends (2026-2027)
 
 1. **Rapid Digitalization**
    - 2,000+ groups already using technology
@@ -326,7 +326,7 @@ Despite progress, some women face:
 
 ### Future Projections
 
-**Short-term (2025-2026):**
+**Short-term (2026-2027):**
 - Completion of Ibimina registration under new law
 - Expansion of Amatsinda.rw to 82+ additional groups
 - Enhanced mobile money integration
@@ -356,7 +356,7 @@ Despite progress, some women face:
 |---------|----------------------|-------|--------|
 | **Formality** | Historically informal, now regulated | Semi-formal | Fully formal |
 | **Size** | 25-30 members | 25-30 members | Hundreds to thousands |
-| **Regulation** | New (2024) | Light-touch | Full BNR supervision |
+| **Regulation** | New (2026) | Light-touch | Full BNR supervision |
 | **Technology** | Emerging | Moderate adoption | Fully automated |
 | **Services** | Savings & loans | Savings & loans | Full banking services |
 | **Geographic Scope** | Community-based | Community-based | District/regional |
@@ -367,7 +367,7 @@ Despite progress, some women face:
 
 ### Quantitative Impact
 
-**From 2024 FinScope Survey:**
+**From 2026 FinScope Survey:**
 - **60%** of adult Rwandans use informal savings methods
 - **40%** participate in Ibimina or similar groups
 - Significant contribution to national savings rate
@@ -437,7 +437,7 @@ Despite progress, some women face:
 - **Members:** 28 women
 - **Location:** Urban Kigali
 - **Established:** 2020
-- **Digitalized:** 2024
+- **Digitalized:** 2026
 
 **Weekly Operations:**
 
@@ -477,7 +477,7 @@ Despite progress, some women face:
 
 ## Conclusion
 
-Ibimina in modern Rwanda represent a successful fusion of traditional community values with contemporary financial technology and regulatory frameworks. As of 2024-2025, these groups are:
+Ibimina in modern Rwanda represent a successful fusion of traditional community values with contemporary financial technology and regulatory frameworks. As of 2026, these groups are:
 
 ✅ **Legally recognized** and regulated  
 ✅ **Digitally enabled** with mobile platforms  
@@ -495,7 +495,7 @@ The evolution of Ibimina demonstrates Rwanda's innovative approach to financial 
 This research is based on information from:
 - National Bank of Rwanda (BNR) official publications
 - Ministry of Finance (MINECOFIN) policy documents
-- FinScope Rwanda 2024 Survey
+- FinScope Rwanda 2026 Survey
 - ForAfrika Amatsinda.rw initiative reports
 - CARE International VSLA impact studies
 - Academic research from ResearchGate
@@ -507,4 +507,4 @@ This research is based on information from:
 ---
 
 **Document prepared:** February 2026  
-**Research focus:** Modern operations of Ibimina in Rwanda (2024-2025)
+**Research focus:** Modern operations of Ibimina in Rwanda (2026-2027)

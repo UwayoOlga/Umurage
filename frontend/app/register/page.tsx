@@ -18,6 +18,7 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     // Redirect if already logged in
     useEffect(() => {
@@ -45,8 +46,9 @@ export default function RegisterPage() {
 
         setLoading(true);
         try {
-            await register(phone.trim(), password, name.trim());
-            // Redirect happens via useEffect
+            const message = await register(phone.trim(), password, name.trim());
+            setSuccess(message);
+            // Redirection happens via useEffect when user state changes
         } catch (err: any) {
             setError(err.message || 'Registration failed. Please try again.');
         } finally {
@@ -78,10 +80,17 @@ export default function RegisterPage() {
                         <p className="text-slate-400 text-sm mt-1">Join Umurage and manage your savings group</p>
                     </div>
 
-                    {/* Error */}
+                    {/* Status Messages */}
                     {error && (
-                        <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                        <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm animate-in fade-in slide-in-from-top-1">
                             {error}
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="mb-5 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm animate-in fade-in slide-in-from-top-1 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {success}
                         </div>
                     )}
 
@@ -213,7 +222,7 @@ export default function RegisterPage() {
 
                 {/* Footer */}
                 <p className="text-center text-slate-600 text-xs mt-6">
-                    © 2024 Umurage Ltd. Built for Rwanda 🇷🇼
+                    © 2026 Umurage Ltd. Built for Rwanda 🇷🇼
                 </p>
             </div>
         </div>

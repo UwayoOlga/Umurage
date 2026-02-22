@@ -23,7 +23,7 @@
 ### From Ikimina.rw (Government Platform)
 
 ✅ **Digital Registration**
-- Register group at sector level (2024 law compliance)
+- Register group at sector level (2026 law compliance)
 - Generate registration documents
 - Digital certificate issuance
 - Legal personality establishment
@@ -448,7 +448,7 @@ For EVERY feature, ask:
 ### Tier 1: Core Features (MVP - Must Have)
 
 **Group Management**
-- ✅ Register group (2024 law compliant)
+- ✅ Register group (2026 law compliant)
 - ✅ Add/remove members
 - ✅ Officer roles and permissions
 - ✅ Group constitution storage

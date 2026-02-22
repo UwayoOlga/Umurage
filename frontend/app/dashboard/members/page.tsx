@@ -15,12 +15,12 @@ import { cn } from "@/lib/utils";
 
 // Mock Data
 const MEMBERS = [
-    { id: 1, name: "Jean Uwimana", role: "Admin", phone: "0788 123 456", status: "Active", joined: "Jan 2024", savings: "125,000 RWF" },
-    { id: 2, name: "Marie Mukamana", role: "Treasurer", phone: "0788 876 543", status: "Active", joined: "Jan 2024", savings: "110,000 RWF" },
-    { id: 3, name: "Claude Ndayisaba", role: "Member", phone: "0785 555 123", status: "Late Payment", joined: "Feb 2024", savings: "45,000 RWF" },
-    { id: 4, name: "Alice Uwase", role: "Secretary", phone: "0783 333 999", status: "Active", joined: "Feb 2024", savings: "80,000 RWF" },
-    { id: 5, name: "Eric Mugisha", role: "Member", phone: "0722 111 222", status: "Inactive", joined: "Mar 2024", savings: "10,000 RWF" },
-    { id: 6, name: "Diane Keza", role: "Member", phone: "0799 444 777", status: "Active", joined: "Mar 2024", savings: "60,000 RWF" },
+    { id: 1, name: "Jean Uwimana", role: "Admin", phone: "0788 123 456", status: "Active", joined: "Jan 2026", savings: "125,000 RWF" },
+    { id: 2, name: "Marie Mukamana", role: "Treasurer", phone: "0788 876 543", status: "Active", joined: "Jan 2026", savings: "110,000 RWF" },
+    { id: 3, name: "Claude Ndayisaba", role: "Member", phone: "0785 555 123", status: "Late Payment", joined: "Feb 2026", savings: "45,000 RWF" },
+    { id: 4, name: "Alice Uwase", role: "Secretary", phone: "0783 333 999", status: "Active", joined: "Feb 2026", savings: "80,000 RWF" },
+    { id: 5, name: "Eric Mugisha", role: "Member", phone: "0722 111 222", status: "Inactive", joined: "Mar 2026", savings: "10,000 RWF" },
+    { id: 6, name: "Diane Keza", role: "Member", phone: "0799 444 777", status: "Active", joined: "Mar 2026", savings: "60,000 RWF" },
 ];
 
 export default function MembersPage() {

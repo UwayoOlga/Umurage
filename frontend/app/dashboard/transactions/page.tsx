@@ -14,12 +14,12 @@ import { cn } from "@/lib/utils";
 
 // Mock Data - Expanded
 const TRANSACTIONS = [
-    { id: 1, type: "Deposit", member: "Jean Uwimana", amount: "+50,000 RWF", date: "Feb 10, 2024, 10:00 AM", status: "Success", ref: "TXN-8821" },
-    { id: 2, type: "Deposit", member: "Marie Mukamana", amount: "+20,000 RWF", date: "Feb 10, 2024, 09:15 AM", status: "Success", ref: "TXN-8820" },
-    { id: 3, type: "Withdrawal", member: "Group Admin", amount: "-150,000 RWF", date: "Feb 09, 2024, 4:00 PM", status: "Pending", ref: "TXN-8819" },
-    { id: 4, type: "Loan Issue", member: "Eric Mugisha", amount: "-200,000 RWF", date: "Feb 08, 2024, 2:30 PM", status: "Success", ref: "TXN-8818" },
-    { id: 5, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 01, 2024, 12:00 AM", status: "Success", ref: "TXN-8810" },
-    { id: 6, type: "Penalty", member: "Claude Ndayisaba", amount: "+1,000 RWF", date: "Jan 28, 2024, 11:45 AM", status: "Success", ref: "TXN-8805" },
+    { id: 1, type: "Deposit", member: "Jean Uwimana", amount: "+50,000 RWF", date: "Feb 10, 2026, 10:00 AM", status: "Success", ref: "TXN-8821" },
+    { id: 2, type: "Deposit", member: "Marie Mukamana", amount: "+20,000 RWF", date: "Feb 10, 2026, 09:15 AM", status: "Success", ref: "TXN-8820" },
+    { id: 3, type: "Withdrawal", member: "Group Admin", amount: "-150,000 RWF", date: "Feb 09, 2026, 4:00 PM", status: "Pending", ref: "TXN-8819" },
+    { id: 4, type: "Loan Issue", member: "Eric Mugisha", amount: "-200,000 RWF", date: "Feb 08, 2026, 2:30 PM", status: "Success", ref: "TXN-8818" },
+    { id: 5, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 01, 2026, 12:00 AM", status: "Success", ref: "TXN-8810" },
+    { id: 6, type: "Penalty", member: "Claude Ndayisaba", amount: "+1,000 RWF", date: "Jan 28, 2026, 11:45 AM", status: "Success", ref: "TXN-8805" },
 ];
 
 export default function TransactionsPage() {

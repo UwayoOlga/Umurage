@@ -94,4 +94,4 @@ UPDATE users SET role = 'admin' WHERE phone = 'YOUR_PHONE_NUMBER';
 
 ---
 
-© 2024 Umurage Ltd. Built for Rwanda 🇷🇼
+© 2026 Umurage Ltd. Built for Rwanda 🇷🇼

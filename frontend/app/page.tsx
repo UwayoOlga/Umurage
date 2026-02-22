@@ -120,7 +120,7 @@ export default function LandingPage() {
             </div>
             <span className="font-semibold text-slate-200">Umurage</span>
           </div>
-          <p className="text-sm">© 2024 Umurage Ltd. Built for Rwanda 🇷🇼</p>
+          <p className="text-sm">© 2026 Umurage Ltd. Built for Rwanda 🇷🇼</p>
         </div>
       </footer>
     </div>

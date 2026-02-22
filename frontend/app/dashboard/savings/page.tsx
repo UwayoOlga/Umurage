@@ -19,8 +19,8 @@ const SAVINGS_HISTORY = [
     { id: 1, type: "Deposit", member: "Jean Uwimana", amount: "+50,000 RWF", date: "Today, 10:00 AM", method: "Mobile Money", status: "Completed" },
     { id: 2, type: "Deposit", member: "Marie Mukamana", amount: "+20,000 RWF", date: "Today, 09:15 AM", method: "Cash", status: "Completed" },
     { id: 3, type: "Withdrawal", member: "Group Admin", amount: "-150,000 RWF", date: "Yesterday, 4:00 PM", method: "Bank Transfer", status: "Pending" },
-    { id: 4, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 1, 2024", method: "Automatic", status: "Completed" },
-    { id: 5, type: "Deposit", member: "Alice Uwase", amount: "+30,000 RWF", date: "Jan 28, 2024", method: "Mobile Money", status: "Completed" },
+    { id: 4, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 1, 2026", method: "Automatic", status: "Completed" },
+    { id: 5, type: "Deposit", member: "Alice Uwase", amount: "+30,000 RWF", date: "Jan 28, 2026", method: "Mobile Money", status: "Completed" },
 ];
 
 export default function SavingsPage() {
@@ -94,7 +94,7 @@ export default function SavingsPage() {
                             </div>
                         </div>
                         <p className="text-emerald-100 text-sm mb-4 relative z-10">
-                            Target: <span className="font-bold text-white">5,000,000 RWF</span> by Dec 2024
+                            Target: <span className="font-bold text-white">5,000,000 RWF</span> by Dec 2026
                         </p>
                     </div>
 
