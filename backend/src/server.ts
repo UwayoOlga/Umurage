@@ -9,6 +9,7 @@ import loanRoutes from './routes/loan.routes';
 import transactionRoutes from './routes/transaction.routes';
 import ussdRoutes from './routes/ussd.routes';
 import adminRoutes from './routes/admin.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
 
@@ -40,6 +41,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/members', memberRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/savings', savingRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/transactions', transactionRoutes);

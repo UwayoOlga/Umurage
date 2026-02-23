@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-
-import { getMyGroupMembers } from '../controllers/member.controller';
+import { getDashboardSummary } from '../controllers/dashboard.controller';
 
 const router = Router();
 
-router.get('/', authenticate, getMyGroupMembers);
+router.get('/summary', authenticate, getDashboardSummary);
 
 export default router;

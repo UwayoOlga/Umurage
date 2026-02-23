@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import {
     History,
     Search,
@@ -11,24 +8,41 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-// Mock Data - Expanded
-const TRANSACTIONS = [
-    { id: 1, type: "Deposit", member: "Jean Uwimana", amount: "+50,000 RWF", date: "Feb 10, 2026, 10:00 AM", status: "Success", ref: "TXN-8821" },
-    { id: 2, type: "Deposit", member: "Marie Mukamana", amount: "+20,000 RWF", date: "Feb 10, 2026, 09:15 AM", status: "Success", ref: "TXN-8820" },
-    { id: 3, type: "Withdrawal", member: "Group Admin", amount: "-150,000 RWF", date: "Feb 09, 2026, 4:00 PM", status: "Pending", ref: "TXN-8819" },
-    { id: 4, type: "Loan Issue", member: "Eric Mugisha", amount: "-200,000 RWF", date: "Feb 08, 2026, 2:30 PM", status: "Success", ref: "TXN-8818" },
-    { id: 5, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 01, 2026, 12:00 AM", status: "Success", ref: "TXN-8810" },
-    { id: 6, type: "Penalty", member: "Claude Ndayisaba", amount: "+1,000 RWF", date: "Jan 28, 2026, 11:45 AM", status: "Success", ref: "TXN-8805" },
-];
+import { useEffect, useState } from "react";
+import { dashboardService } from "@/lib/services/dashboard.service";
 
 export default function TransactionsPage() {
     const [searchTerm, setSearchTerm] = useState("");
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const filteredTxns = TRANSACTIONS.filter(t =>
-        t.member.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.ref.toLowerCase().includes(searchTerm.toLowerCase())
+    useEffect(() => {
+        const fetchTransactions = async () => {
+            try {
+                const result = await dashboardService.getTransactions();
+                setTransactions(result.data);
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchTransactions();
+    }, []);
+
+    const filteredTxns = transactions.filter(t =>
+        (t.from_member_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (t.to_member_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (t.id?.toLowerCase() || "").includes(searchTerm.toLowerCase())
     );
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-RW', {
+            style: 'currency',
+            currency: 'RWF',
+            minimumFractionDigits: 0
+        }).format(amount).replace('RWF', '').trim() + ' RWF';
+    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -83,35 +97,41 @@ export default function TransactionsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredTxns.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <span className="font-medium text-slate-900">{tx.type}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-xs font-mono text-slate-500">
-                                        {tx.ref}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-700">
-                                        {tx.member}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500">
-                                        {tx.date}
-                                    </td>
-                                    <td className={cn("px-6 py-4 font-bold",
-                                        tx.amount.startsWith('+') ? "text-emerald-700" : "text-slate-700"
-                                    )}>
-                                        {tx.amount}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                                            tx.status === 'Success' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-                                                "bg-amber-50 text-amber-700 border-amber-100"
+                            {loading ? (
+                                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Loading transactions...</td></tr>
+                            ) : filteredTxns.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">No transactions found</td></tr>
+                            ) : (
+                                filteredTxns.map((tx) => (
+                                    <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <span className="font-medium text-slate-900 capitalize">{tx.type.replace('_', ' ')}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs font-mono text-slate-500">
+                                            {tx.id.substring(0, 8)}...
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-700">
+                                            {tx.from_member_name || tx.to_member_name || 'System'}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500">
+                                            {new Date(tx.created_at).toLocaleDateString()}
+                                        </td>
+                                        <td className={cn("px-6 py-4 font-bold",
+                                            tx.amount > 0 ? "text-emerald-700" : "text-slate-700"
                                         )}>
-                                            {tx.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
+                                            {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                                                tx.status === 'completed' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                                                    "bg-amber-50 text-amber-700 border-amber-100"
+                                            )}>
+                                                {tx.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

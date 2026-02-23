@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 
+import { getUserTransactions } from '../controllers/transaction.controller';
+
 const router = Router();
 
-router.get('/', authenticate, (req, res) => {
-    res.json({ message: 'Transactions routes - to be implemented' });
-});
+router.get('/', authenticate, getUserTransactions);
 
 export default router;

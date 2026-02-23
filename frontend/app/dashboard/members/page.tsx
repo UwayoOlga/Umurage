@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Users,
     UserPlus,
@@ -12,24 +10,33 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-// Mock Data
-const MEMBERS = [
-    { id: 1, name: "Jean Uwimana", role: "Admin", phone: "0788 123 456", status: "Active", joined: "Jan 2026", savings: "125,000 RWF" },
-    { id: 2, name: "Marie Mukamana", role: "Treasurer", phone: "0788 876 543", status: "Active", joined: "Jan 2026", savings: "110,000 RWF" },
-    { id: 3, name: "Claude Ndayisaba", role: "Member", phone: "0785 555 123", status: "Late Payment", joined: "Feb 2026", savings: "45,000 RWF" },
-    { id: 4, name: "Alice Uwase", role: "Secretary", phone: "0783 333 999", status: "Active", joined: "Feb 2026", savings: "80,000 RWF" },
-    { id: 5, name: "Eric Mugisha", role: "Member", phone: "0722 111 222", status: "Inactive", joined: "Mar 2026", savings: "10,000 RWF" },
-    { id: 6, name: "Diane Keza", role: "Member", phone: "0799 444 777", status: "Active", joined: "Mar 2026", savings: "60,000 RWF" },
-];
+import { dashboardService } from "@/lib/services/dashboard.service";
 
 export default function MembersPage() {
     const [searchTerm, setSearchTerm] = useState("");
+    const [members, setMembers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const filteredMembers = MEMBERS.filter(member =>
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.phone.includes(searchTerm)
+    useEffect(() => {
+        const fetchMembers = async () => {
+            try {
+                const result = await dashboardService.getGroupMembers();
+                setMembers(result.data);
+            } catch (error) {
+                console.error("Error fetching members:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMembers();
+    }, []);
+
+    const filteredMembers = members.filter(member =>
+        (member.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (member.phone || "").includes(searchTerm)
     );
+
+    const adminsCount = members.filter(m => m.role === 'admin' || m.role === 'treasurer' || m.role === 'secretary').length;
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -56,7 +63,7 @@ export default function MembersPage() {
                     </div>
                     <div>
                         <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Members</p>
-                        <p className="text-2xl font-bold text-slate-900">24</p>
+                        <p className="text-2xl font-bold text-slate-900">{loading ? "..." : members.length}</p>
                     </div>
                 </Card>
                 <Card className="flex items-center gap-4 p-4">
@@ -65,7 +72,7 @@ export default function MembersPage() {
                     </div>
                     <div>
                         <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Admins & Leaders</p>
-                        <p className="text-2xl font-bold text-slate-900">3</p>
+                        <p className="text-2xl font-bold text-slate-900">{loading ? "..." : adminsCount}</p>
                     </div>
                 </Card>
                 <Card className="flex items-center gap-4 p-4">
@@ -111,12 +118,14 @@ export default function MembersPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredMembers.map((member) => (
+                            {loading ? (
+                                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">Loading members...</td></tr>
+                            ) : filteredMembers.map((member) => (
                                 <tr key={member.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                                                {member.name.charAt(0)}
+                                                {member.name ? member.name.charAt(0) : '?'}
                                             </div>
                                             <div>
                                                 <p className="font-medium text-slate-900">{member.name}</p>
@@ -127,31 +136,31 @@ export default function MembersPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border",
-                                            member.role === 'Admin' ? "bg-purple-50 text-purple-700 border-purple-100" :
-                                                member.role === 'Treasurer' ? "bg-blue-50 text-blue-700 border-blue-100" :
-                                                    member.role === 'Secretary' ? "bg-indigo-50 text-indigo-700 border-indigo-100" :
+                                        <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
+                                            member.role === 'admin' ? "bg-purple-50 text-purple-700 border-purple-100" :
+                                                member.role === 'treasurer' ? "bg-blue-50 text-blue-700 border-blue-100" :
+                                                    member.role === 'secretary' ? "bg-indigo-50 text-indigo-700 border-indigo-100" :
                                                         "bg-slate-50 text-slate-600 border-slate-100"
                                         )}>
                                             {member.role}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-                                            member.status === 'Active' ? "bg-emerald-50 text-emerald-700" :
-                                                member.status === 'Inactive' ? "bg-slate-100 text-slate-500" :
+                                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize",
+                                            member.status === 'active' ? "bg-emerald-50 text-emerald-700" :
+                                                member.status === 'inactive' ? "bg-slate-100 text-slate-50" :
                                                     "bg-amber-50 text-amber-700"
                                         )}>
                                             <span className={cn("w-1.5 h-1.5 rounded-full",
-                                                member.status === 'Active' ? "bg-emerald-500" :
-                                                    member.status === 'Inactive' ? "bg-slate-400" :
+                                                member.status === 'active' ? "bg-emerald-500" :
+                                                    member.status === 'inactive' ? "bg-slate-400" :
                                                         "bg-amber-500"
                                             )} />
                                             {member.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-700">
-                                        {member.savings}
+                                        {member.group_name}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">

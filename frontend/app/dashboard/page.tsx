@@ -11,13 +11,45 @@ import {
     Banknote
 } from 'lucide-react';
 
+import { dashboardService } from '@/lib/services/dashboard.service';
+import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect } from 'react';
+
 export default function Dashboard() {
+    const { user } = useAuth();
+    const [summary, setSummary] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchSummary = async () => {
+            try {
+                const result = await dashboardService.getSummary();
+                setSummary(result.data);
+            } catch (error) {
+                console.error('Error fetching dashboard summary:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (user) {
+            fetchSummary();
+        }
+    }, [user]);
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-RW', {
+            style: 'currency',
+            currency: 'RWF',
+            minimumFractionDigits: 0
+        }).format(amount).replace('RWF', '').trim() + ' RWF';
+    };
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Muraho, Jean! 👋</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Muraho, {user?.name?.split(' ')[0] || 'Member'}! 👋</h1>
                     <p className="text-slate-500 text-sm mt-1">Here's what's happening with your group today.</p>
                 </div>
                 <div className="hidden md:flex items-center gap-3">
@@ -33,28 +65,28 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     label="Total Savings"
-                    value="RWF 2,450,000"
+                    value={loading ? "..." : formatCurrency(summary?.totalSavings || 0)}
                     icon={Wallet}
-                    trend="+12% this month"
+                    trend={loading ? undefined : "+0% this month"}
                     trendUp={true}
                 />
                 <StatCard
                     label="Active Loans"
-                    value="RWF 850,000"
+                    value={loading ? "..." : formatCurrency(summary?.activeLoans || 0)}
                     icon={TrendingUp}
                     color="text-blue-600"
                 />
                 <StatCard
                     label="Active Members"
-                    value="24"
+                    value={loading ? "..." : (summary?.activeMembers || 0).toString()}
                     icon={Users}
                     color="text-purple-600"
-                    trend="+2 new members"
+                    trend={loading ? undefined : "+0 new members"}
                     trendUp={true}
                 />
                 <StatCard
                     label="Pending Actions"
-                    value="3"
+                    value={loading ? "..." : (summary?.pendingActions || 0).toString()}
                     icon={AlertCircle}
                     color="text-amber-500"
                     trend="Requires attention"
@@ -73,34 +105,35 @@ export default function Dashboard() {
 
                     <Card className="p-0 overflow-hidden">
                         <div className="divide-y divide-slate-100">
-                            {[
-                                { name: "Marie Mukamana", type: "Contribution", amount: "+5,000 RWF", date: "Today, 10:23 AM", status: "success" },
-                                { name: "Jean Claude", type: "Loan Repayment", amount: "+12,000 RWF", date: "Today, 09:15 AM", status: "success" },
-                                { name: "Group Saving", type: "Bank Deposit", amount: "-150,000 RWF", date: "Yesterday", status: "pending" },
-                                { name: "Alice Uwase", type: "Loan Disbursement", amount: "-50,000 RWF", date: "Yesterday", status: "success" },
-                            ].map((tx, i) => (
-                                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn("p-2 rounded-full", tx.amount.startsWith('+') ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
-                                            {tx.amount.startsWith('+') ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                            {loading ? (
+                                <div className="p-8 text-center text-slate-400">Loading activity...</div>
+                            ) : summary?.recentTransactions?.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400">No recent activity</div>
+                            ) : (
+                                summary?.recentTransactions?.map((tx: any, i: number) => (
+                                    <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className={cn("p-2 rounded-full", tx.type === 'contribution' || tx.type === 'loan_repayment' ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
+                                                {tx.amount > 0 ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-900">{tx.member_name || 'Member'}</p>
+                                                <p className="text-xs text-slate-500">{tx.type.replace('_', ' ')} • {new Date(tx.created_at).toLocaleDateString()}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-slate-900">{tx.name}</p>
-                                            <p className="text-xs text-slate-500">{tx.type} • {tx.date}</p>
+                                        <div className="text-right">
+                                            <p className={cn("font-bold", tx.amount > 0 ? "text-emerald-700" : "text-slate-700")}>
+                                                {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                                            </p>
+                                            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider",
+                                                tx.status === 'completed' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                                            )}>
+                                                {tx.status}
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className={cn("font-bold", tx.amount.startsWith('+') ? "text-emerald-700" : "text-slate-700")}>
-                                            {tx.amount}
-                                        </p>
-                                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider",
-                                            tx.status === 'success' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                                        )}>
-                                            {tx.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </Card>
                 </div>

@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 
+import { getUserSavings } from '../controllers/saving.controller';
+
 const router = Router();
 
-router.get('/', authenticate, (req, res) => {
-    res.json({ message: 'Savings routes - to be implemented' });
-});
+router.get('/', authenticate, getUserSavings);
 
 export default router;

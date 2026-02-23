@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import {
     PiggyBank,
     Wallet,
@@ -13,18 +10,45 @@ import {
 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-// Mock Data
-const SAVINGS_HISTORY = [
-    { id: 1, type: "Deposit", member: "Jean Uwimana", amount: "+50,000 RWF", date: "Today, 10:00 AM", method: "Mobile Money", status: "Completed" },
-    { id: 2, type: "Deposit", member: "Marie Mukamana", amount: "+20,000 RWF", date: "Today, 09:15 AM", method: "Cash", status: "Completed" },
-    { id: 3, type: "Withdrawal", member: "Group Admin", amount: "-150,000 RWF", date: "Yesterday, 4:00 PM", method: "Bank Transfer", status: "Pending" },
-    { id: 4, type: "Interest", member: "System", amount: "+2,400 RWF", date: "Feb 1, 2026", method: "Automatic", status: "Completed" },
-    { id: 5, type: "Deposit", member: "Alice Uwase", amount: "+30,000 RWF", date: "Jan 28, 2026", method: "Mobile Money", status: "Completed" },
-];
+import { useEffect, useState } from "react";
+import { dashboardService } from "@/lib/services/dashboard.service";
 
 export default function SavingsPage() {
     const [filter, setFilter] = useState("All");
+    const [savingsData, setSavingsData] = useState<any>(null);
+    const [summary, setSummary] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [savingsRes, summaryRes] = await Promise.all([
+                    dashboardService.getSavings(),
+                    dashboardService.getSummary()
+                ]);
+                setSavingsData(savingsRes.data);
+                setSummary(summaryRes.data);
+            } catch (error) {
+                console.error("Error fetching savings data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-RW', {
+            style: 'currency',
+            currency: 'RWF',
+            minimumFractionDigits: 0
+        }).format(amount).replace('RWF', '').trim() + ' RWF';
+    };
+
+    const savingsHistory = savingsData?.savings || [];
+    const filteredHistory = filter === "All"
+        ? savingsHistory
+        : savingsHistory.filter((s: any) => s.type.toLowerCase().includes(filter.toLowerCase().slice(0, -1)));
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
@@ -53,24 +77,24 @@ export default function SavingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
                     label="Total Group Savings"
-                    value="RWF 2,450,000"
+                    value={loading ? "..." : formatCurrency(summary?.totalSavings || 0)}
                     icon={Wallet}
-                    trend="+12% this month"
+                    trend={loading ? undefined : "+0% this month"}
                     trendUp={true}
                 />
                 <StatCard
                     label="My Contributions"
-                    value="RWF 350,000"
+                    value={loading ? "..." : formatCurrency(savingsData?.total || 0)}
                     icon={PiggyBank}
                     color="text-blue-600"
-                    trend="Last deposit: 2 days ago"
+                    trend={loading ? undefined : "Updated just now"}
                 />
                 <StatCard
                     label="Interest Earned"
-                    value="RWF 45,200"
+                    value="RWF 0"
                     icon={TrendingUp}
                     color="text-purple-600"
-                    trend="+5.2% APY"
+                    trend="APY: 5.0%"
                     trendUp={true}
                 />
             </div>
@@ -128,30 +152,33 @@ export default function SavingsPage() {
                             </button>
                         </div>
                         <div className="divide-y divide-slate-100">
-                            {SAVINGS_HISTORY.map((tx) => (
-                                <div key={tx.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn("p-2 rounded-full", tx.amount.startsWith('+') ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
-                                            {tx.amount.startsWith('+') ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                            {loading ? (
+                                <div className="p-8 text-center text-slate-400">Loading history...</div>
+                            ) : filteredHistory.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400">No savings history found</div>
+                            ) : (
+                                filteredHistory.map((tx: any) => (
+                                    <div key={tx.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                                        <div className="flex items-center gap-4">
+                                            <div className={cn("p-2 rounded-full", tx.amount > 0 ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
+                                                {tx.amount > 0 ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-900 capitalize">{tx.type} <span className="text-slate-400 font-normal ml-1">to</span> {tx.group_name}</p>
+                                                <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString()} • {tx.payment_method || 'momo'}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-slate-900">{tx.type} <span className="text-slate-400 font-normal">by</span> {tx.member}</p>
-                                            <p className="text-xs text-slate-500">{tx.date} • {tx.method}</p>
+                                        <div className="text-right">
+                                            <p className={cn("font-bold", tx.amount > 0 ? "text-emerald-700" : "text-slate-700")}>
+                                                {formatCurrency(tx.amount)}
+                                            </p>
+                                            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-emerald-50 text-emerald-600")}>
+                                                Completed
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className={cn("font-bold", tx.amount.startsWith('+') ? "text-emerald-700" : "text-slate-700")}>
-                                            {tx.amount}
-                                        </p>
-                                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider",
-                                            tx.status === 'Completed' ? "bg-emerald-50 text-emerald-600" :
-                                                tx.status === 'Pending' ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"
-                                        )}>
-                                            {tx.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </Card>
                 </div>

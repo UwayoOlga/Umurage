@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 
+import { getUserLoans } from '../controllers/loan.controller';
+
 const router = Router();
 
-router.get('/', authenticate, (req, res) => {
-    res.json({ message: 'Loans routes - to be implemented' });
-});
+router.get('/', authenticate, getUserLoans);
 
 export default router;

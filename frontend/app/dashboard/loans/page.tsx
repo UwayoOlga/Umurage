@@ -1,5 +1,3 @@
-"use client";
-
 import {
     Banknote,
     Plus,
@@ -11,19 +9,42 @@ import {
 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-// Mock Data
-const ACTIVE_LOANS = [
-    { id: 1, borrower: "Jean Uwimana", amount: "500,000 RWF", remaining: "350,000 RWF", nextPayment: "Feb 15, 2026", status: "On Track" },
-    { id: 2, borrower: "Eric Mugisha", amount: "200,000 RWF", remaining: "50,000 RWF", nextPayment: "Feb 10, 2026", status: "Overdue" },
-];
-
-const LOAN_HISTORY = [
-    { id: 101, borrower: "Marie Mukamana", amount: "100,000 RWF", date: "Jan 10, 2026", status: "Fully Repaid" },
-    { id: 102, borrower: "Alice Uwase", amount: "300,000 RWF", date: "Dec 05, 2023", status: "Fully Repaid" },
-];
+import { useEffect, useState } from "react";
+import { dashboardService } from "@/lib/services/dashboard.service";
 
 export default function LoansPage() {
+    const [loans, setLoans] = useState<any[]>([]);
+    const [summary, setSummary] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [loansRes, summaryRes] = await Promise.all([
+                    dashboardService.getLoans(),
+                    dashboardService.getSummary()
+                ]);
+                setLoans(loansRes.data);
+                setSummary(summaryRes.data);
+            } catch (error) {
+                console.error("Error fetching loans:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-RW', {
+            style: 'currency',
+            currency: 'RWF',
+            minimumFractionDigits: 0
+        }).format(amount).replace('RWF', '').trim() + ' RWF';
+    };
+
+    const activeLoans = loans.filter(l => l.status === 'approved' || l.status === 'disbursed' || l.status === 'pending');
+    const loanHistory = loans.filter(l => l.status === 'repaid' || l.status === 'rejected');
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
             {/* Header */}
@@ -44,26 +65,26 @@ export default function LoansPage() {
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
-                    label="Total Active Loans"
-                    value="RWF 850,000"
+                    label="Active Loans Balance"
+                    value={loading ? "..." : formatCurrency(summary?.activeLoans || 0)}
                     icon={Banknote}
                     color="text-blue-600"
-                    trend="2 active borrowers"
+                    trend={loading ? undefined : `${activeLoans.length} active loans`}
                 />
                 <StatCard
                     label="Expected Repayments"
-                    value="RWF 120,000"
+                    value="RWF 0"
                     icon={Calendar}
                     color="text-emerald-600"
-                    trend="Due this week"
+                    trend="Currently no dues"
                     trendUp={true}
                 />
                 <StatCard
                     label="Default Risk"
-                    value="Low"
+                    value="None"
                     icon={AlertCircle}
                     color="text-amber-600"
-                    trend="1 payment overdue"
+                    trend="Clean record"
                     trendUp={false}
                 />
             </div>
@@ -74,43 +95,50 @@ export default function LoansPage() {
                 <div className="lg:col-span-2 space-y-6">
                     <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2">
                         Active Loans
-                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">{ACTIVE_LOANS.length}</span>
+                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">{activeLoans.length}</span>
                     </h2>
 
                     <div className="space-y-4">
-                        {ACTIVE_LOANS.map((loan) => (
-                            <Card key={loan.id} className="p-5 hover:shadow-md transition-all cursor-pointer border-l-4 border-l-blue-500">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="font-bold text-slate-900 text-lg">{loan.borrower}</h3>
-                                        <p className="text-slate-500 text-sm">Original Amount: {loan.amount}</p>
+                        {loading ? (
+                            <div className="p-8 text-center text-slate-400">Loading loans...</div>
+                        ) : activeLoans.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400">No active loans</div>
+                        ) : (
+                            activeLoans.map((loan) => (
+                                <Card key={loan.id} className="p-5 hover:shadow-md transition-all cursor-pointer border-l-4 border-l-blue-500">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-slate-900 text-lg">{loan.purpose || 'Personal Loan'}</h3>
+                                            <p className="text-slate-500 text-sm">Group: {loan.group_name}</p>
+                                        </div>
+                                        <div className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider capitalize",
+                                            loan.status === 'defaulted' ? "bg-red-50 text-red-600" :
+                                                loan.status === 'pending' ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                                        )}>
+                                            {loan.status}
+                                        </div>
                                     </div>
-                                    <div className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                                        loan.status === 'Overdue' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
-                                    )}>
-                                        {loan.status}
-                                    </div>
-                                </div>
 
-                                <div className="mt-6 flex items-end justify-between">
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-400 uppercase font-medium">Remaining Balance</p>
-                                        <p className="text-2xl font-bold text-slate-900">{loan.remaining}</p>
+                                    <div className="mt-6 flex items-end justify-between">
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-slate-400 uppercase font-medium">Approved Amount</p>
+                                            <p className="text-2xl font-bold text-slate-900">{formatCurrency(loan.amount)}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-slate-500">Due Date</p>
+                                            <p className="font-medium text-slate-800">{loan.due_date ? new Date(loan.due_date).toLocaleDateString() : 'TBD'}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-slate-500">Next Payment</p>
-                                        <p className="font-medium text-slate-800">{loan.nextPayment}</p>
-                                    </div>
-                                </div>
 
-                                <div className="mt-4 w-full bg-slate-100 rounded-full h-1.5">
-                                    <div
-                                        className={cn("h-1.5 rounded-full", loan.status === 'Overdue' ? "bg-red-400" : "bg-blue-500")}
-                                        style={{ width: '60%' }}
-                                    ></div>
-                                </div>
-                            </Card>
-                        ))}
+                                    <div className="mt-4 w-full bg-slate-100 rounded-full h-1.5">
+                                        <div
+                                            className={cn("h-1.5 rounded-full", loan.status === 'defaulted' ? "bg-red-400" : "bg-blue-500")}
+                                            style={{ width: loan.status === 'approved' ? '20%' : '50%' }}
+                                        ></div>
+                                    </div>
+                                </Card>
+                            ))
+                        )}
                     </div>
 
                     {/* History Section */}
@@ -127,19 +155,27 @@ export default function LoansPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {LOAN_HISTORY.map((history) => (
-                                        <tr key={history.id} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 font-medium text-slate-900">{history.borrower}</td>
-                                            <td className="px-6 py-4 text-slate-600">{history.amount}</td>
-                                            <td className="px-6 py-4 text-slate-500">{history.date}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium text-xs">
-                                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                                    {history.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {loading ? (
+                                        <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">Loading history...</td></tr>
+                                    ) : loanHistory.length === 0 ? (
+                                        <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400">No loan history</td></tr>
+                                    ) : (
+                                        loanHistory.map((history) => (
+                                            <tr key={history.id} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 font-medium text-slate-900">{history.purpose || 'Personal Loan'}</td>
+                                                <td className="px-6 py-4 text-slate-600">{formatCurrency(history.amount)}</td>
+                                                <td className="px-6 py-4 text-slate-500">{new Date(history.created_at).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={cn("inline-flex items-center gap-1.5 font-medium text-xs capitalize",
+                                                        history.status === 'repaid' ? "text-emerald-600" : "text-red-500"
+                                                    )}>
+                                                        {history.status === 'repaid' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                                                        {history.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </Card>
