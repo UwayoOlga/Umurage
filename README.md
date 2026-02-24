@@ -2,7 +2,7 @@
 
 > **Modern savings group management for Rwanda's Ibimina/SACCO ecosystem.**
 
-Umurage digitizes traditional rotating savings groups with secure contributions, loan management, member tracking, and full financial transparency — all in one app.
+Umurage digitizes traditional rotating savings groups with secure contributions, loan management, member tracking, and full financial transparency all in one app.
 
 ---
 
