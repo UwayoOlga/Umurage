@@ -20,28 +20,28 @@ Umurage digitizes traditional rotating savings groups with secure contributions,
 ## Screenshots
 
 ### Home Page
-![Home Page](documentation/screenshots/homepage.jpeg)
+![Home Page](Documentation/screenshots/homepage.jpeg)
 
 ### Create Account
-![Create Account](documentation/screenshots/create%20account.png)
+![Create Account](Documentation/screenshots/create%20account.png)
 
 ### Login
-![Login](documentation/screenshots/login.png)
+![Login](Documentation/screenshots/login.png)
 
 ### Dashboard
-![Dashboard](documentation/screenshots/dashboard.jpeg)
+![Dashboard](Documentation/screenshots/dashboard.jpeg)
 
 ### Members
-![Members Page](documentation/screenshots/members%20page.jpeg)
+![Members Page](Documentation/screenshots/members%20page.jpeg)
 
 ### Savings
-![Savings Page](documentation/screenshots/savings%20page.jpeg)
+![Savings Page](Documentation/screenshots/savings%20page.jpeg)
 
 ### Loans
-![Loans Page](documentation/screenshots/loans%20page.jpeg)
+![Loans Page](Documentation/screenshots/loans%20page.jpeg)
 
 ### Transactions
-![Transactions Page](documentation/screenshots/transactions%20page.jpeg)
+![Transactions Page](Documentation/screenshots/transactions%20page.jpeg)
 
 ---
 
