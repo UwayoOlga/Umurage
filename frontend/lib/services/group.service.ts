@@ -1,6 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-class DashboardService {
+class GroupService {
     private getAuthHeaders(): HeadersInit {
         const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : '';
         return {
@@ -9,46 +9,48 @@ class DashboardService {
         };
     }
 
-    async getTransactions() {
-        const response = await fetch(`${API_URL}/transactions`, {
+    async getMyGroups() {
+        const response = await fetch(`${API_URL}/groups`, {
             headers: this.getAuthHeaders(),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch transactions');
+            throw new Error(error.message || 'Failed to fetch groups');
         }
 
         return response.json();
     }
 
-    async getSavings() {
-        const response = await fetch(`${API_URL}/savings`, {
+    async getGroupById(id: string) {
+        const response = await fetch(`${API_URL}/groups/${id}`, {
             headers: this.getAuthHeaders(),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch savings');
+            throw new Error(error.message || 'Failed to fetch group details');
         }
 
         return response.json();
     }
 
-    async getLoans() {
-        const response = await fetch(`${API_URL}/loans`, {
+    async createGroup(data: any) {
+        const response = await fetch(`${API_URL}/groups`, {
+            method: 'POST',
             headers: this.getAuthHeaders(),
+            body: JSON.stringify(data),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch loans');
+            throw new Error(error.message || 'Failed to create group');
         }
 
         return response.json();
     }
 
-    async getGroupMembers() {
+    async getMembers() {
         const response = await fetch(`${API_URL}/members`, {
             headers: this.getAuthHeaders(),
         });
@@ -60,19 +62,6 @@ class DashboardService {
 
         return response.json();
     }
-
-    async getSummary() {
-        const response = await fetch(`${API_URL}/dashboard/summary`, {
-            headers: this.getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch dashboard summary');
-        }
-
-        return response.json();
-    }
 }
 
-export const dashboardService = new DashboardService();
+export const groupService = new GroupService();

@@ -1,3 +1,5 @@
+"use client";
+
 import {
     PiggyBank,
     Wallet,
@@ -6,36 +8,86 @@ import {
     ArrowDownLeft,
     Plus,
     Calendar,
-    Filter
+    Filter,
+    Loader2,
+    CheckCircle2
 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { dashboardService } from "@/lib/services/dashboard.service";
+import { savingService } from "@/lib/services/saving.service";
+import { groupService } from "@/lib/services/group.service";
 
 export default function SavingsPage() {
     const [filter, setFilter] = useState("All");
     const [savingsData, setSavingsData] = useState<any>(null);
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+
+    // Form state
+    const [groups, setGroups] = useState<any[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState("");
+    const [amount, setAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("momo");
+    const [notes, setNotes] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [success, setSuccess] = useState(false);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [savingsRes, summaryRes, groupsRes] = await Promise.all([
+                savingService.getMySavings(),
+                dashboardService.getSummary(),
+                groupService.getMyGroups()
+            ]);
+            setSavingsData(savingsRes.data);
+            setSummary(summaryRes.data);
+            setGroups(groupsRes.data);
+            if (groupsRes.data.length > 0) {
+                setSelectedGroupId(groupsRes.data[0].id);
+            }
+        } catch (error) {
+            console.error("Error fetching savings data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [savingsRes, summaryRes] = await Promise.all([
-                    dashboardService.getSavings(),
-                    dashboardService.getSummary()
-                ]);
-                setSavingsData(savingsRes.data);
-                setSummary(summaryRes.data);
-            } catch (error) {
-                console.error("Error fetching savings data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
     }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedGroupId || !amount) return;
+
+        setSubmitting(true);
+        try {
+            await savingService.recordContribution({
+                groupId: selectedGroupId,
+                amount: parseFloat(amount),
+                paymentMethod,
+                notes
+            });
+            setSuccess(true);
+            setTimeout(() => {
+                setShowModal(false);
+                setSuccess(false);
+                setAmount("");
+                setNotes("");
+                fetchData();
+            }, 2000);
+        } catch (error) {
+            console.error("Error recording contribution:", error);
+            alert("Failed to record contribution. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-RW', {
@@ -66,7 +118,10 @@ export default function SavingsPage() {
                         <Calendar className="w-4 h-4" />
                         History
                     </button>
-                    <button className="btn-primary flex items-center gap-2">
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="btn-primary flex items-center gap-2"
+                    >
                         <Plus className="w-4 h-4" />
                         <span>Record Deposit</span>
                     </button>
@@ -160,8 +215,8 @@ export default function SavingsPage() {
                                 filteredHistory.map((tx: any) => (
                                     <div key={tx.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
                                         <div className="flex items-center gap-4">
-                                            <div className={cn("p-2 rounded-full", tx.amount > 0 ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
-                                                {tx.amount > 0 ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                            <div className={cn("p-2 rounded-full", tx.type === 'regular' ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
+                                                <ArrowDownLeft className="w-5 h-5" />
                                             </div>
                                             <div>
                                                 <p className="font-medium text-slate-900 capitalize">{tx.type} <span className="text-slate-400 font-normal ml-1">to</span> {tx.group_name}</p>
@@ -169,7 +224,7 @@ export default function SavingsPage() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={cn("font-bold", tx.amount > 0 ? "text-emerald-700" : "text-slate-700")}>
+                                            <p className={cn("font-bold text-emerald-700")}>
                                                 {formatCurrency(tx.amount)}
                                             </p>
                                             <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-emerald-50 text-emerald-600")}>
@@ -183,6 +238,95 @@ export default function SavingsPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* Record Deposit Modal */}
+            <Modal
+                isOpen={showModal}
+                onClose={() => !submitting && setShowModal(false)}
+                title="Record Deposit"
+            >
+                {success ? (
+                    <div className="py-12 flex flex-col items-center text-center animate-in zoom-in-95">
+                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900">Contribution Saved!</h4>
+                        <p className="text-slate-500 mt-2">Your contribution has been recorded successfully.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Group</label>
+                            <select
+                                value={selectedGroupId}
+                                onChange={(e) => setSelectedGroupId(e.target.value)}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                                required
+                            >
+                                {groups.map(group => (
+                                    <option key={group.id} value={group.id}>{group.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Amount (RWF)</label>
+                            <input
+                                type="number"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="e.g. 5000"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                                required
+                                min="100"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {['momo', 'cash', 'sacco'].map(method => (
+                                    <button
+                                        key={method}
+                                        type="button"
+                                        onClick={() => setPaymentMethod(method)}
+                                        className={cn(
+                                            "py-2 px-1 rounded-lg border text-xs font-bold uppercase tracking-wider transition-all",
+                                            paymentMethod === method
+                                                ? "bg-emerald-600 border-emerald-600 text-white"
+                                                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        {method}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Notes (Optional)</label>
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="e.g. Monthly contribution for March"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none min-h-[80px]"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={submitting || groups.length === 0}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 mt-4"
+                        >
+                            {submitting ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</>
+                            ) : (
+                                "Confirm Deposit"
+                            )}
+                        </button>
+                    </form>
+                )}
+            </Modal>
         </div>
     );
 }

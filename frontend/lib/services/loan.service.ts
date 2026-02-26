@@ -1,0 +1,41 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+class LoanService {
+    private getAuthHeaders(): HeadersInit {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : '';
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        };
+    }
+
+    async getMyLoans() {
+        const response = await fetch(`${API_URL}/loans`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch loans');
+        }
+
+        return response.json();
+    }
+
+    async applyForLoan(data: { groupId: string; amount: number; purpose: string; durationMonths?: number }) {
+        const response = await fetch(`${API_URL}/loans`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to submit loan application');
+        }
+
+        return response.json();
+    }
+}
+
+export const loanService = new LoanService();

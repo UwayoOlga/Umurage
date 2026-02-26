@@ -1,3 +1,5 @@
+"use client";
+
 import {
     Banknote,
     Plus,
@@ -5,35 +7,84 @@ import {
     AlertCircle,
     CheckCircle2,
     Clock,
-    ChevronRight
+    ChevronRight,
+    Loader2
 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { dashboardService } from "@/lib/services/dashboard.service";
+import { loanService } from "@/lib/services/loan.service";
+import { groupService } from "@/lib/services/group.service";
 
 export default function LoansPage() {
     const [loans, setLoans] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+
+    // Form state
+    const [groups, setGroups] = useState<any[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState("");
+    const [amount, setAmount] = useState("");
+    const [purpose, setPurpose] = useState("");
+    const [duration, setDuration] = useState("1");
+    const [submitting, setSubmitting] = useState(false);
+    const [success, setSuccess] = useState<any>(null);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [loansRes, summaryRes, groupsRes] = await Promise.all([
+                loanService.getMyLoans(),
+                dashboardService.getSummary(),
+                groupService.getMyGroups()
+            ]);
+            setLoans(loansRes.data);
+            setSummary(summaryRes.data);
+            setGroups(groupsRes.data);
+            if (groupsRes.data.length > 0) {
+                setSelectedGroupId(groupsRes.data[0].id);
+            }
+        } catch (error) {
+            console.error("Error fetching loans:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [loansRes, summaryRes] = await Promise.all([
-                    dashboardService.getLoans(),
-                    dashboardService.getSummary()
-                ]);
-                setLoans(loansRes.data);
-                setSummary(summaryRes.data);
-            } catch (error) {
-                console.error("Error fetching loans:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
     }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedGroupId || !amount) return;
+
+        setSubmitting(true);
+        try {
+            const res = await loanService.applyForLoan({
+                groupId: selectedGroupId,
+                amount: parseFloat(amount),
+                purpose: purpose,
+                durationMonths: parseInt(duration)
+            });
+            setSuccess(res.data);
+            setTimeout(() => {
+                setShowModal(false);
+                setSuccess(null);
+                setAmount("");
+                setPurpose("");
+                fetchData();
+            }, 3000);
+        } catch (error) {
+            console.error("Error applying for loan:", error);
+            alert("Failed to submit loan application. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-RW', {
@@ -45,6 +96,7 @@ export default function LoansPage() {
 
     const activeLoans = loans.filter(l => l.status === 'approved' || l.status === 'disbursed' || l.status === 'pending');
     const loanHistory = loans.filter(l => l.status === 'repaid' || l.status === 'rejected');
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
             {/* Header */}
@@ -56,7 +108,10 @@ export default function LoansPage() {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Manage active loans and meaningful borrowing.</p>
                 </div>
-                <button className="btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700 shadow-blue-200">
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700 shadow-blue-200"
+                >
                     <Plus className="w-4 h-4" />
                     <span>Request Loan</span>
                 </button>
@@ -214,6 +269,100 @@ export default function LoansPage() {
                     </Card>
                 </div>
             </div>
-        </div>
+
+            {/* Request Loan Modal */}
+            <Modal
+                isOpen={showModal}
+                onClose={() => !submitting && setShowModal(false)}
+                title="Request a Loan"
+            >
+                {success ? (
+                    <div className="py-8 flex flex-col items-center text-center animate-in zoom-in-95">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900">Application Sent!</h4>
+                        <p className="text-slate-500 mt-2 mb-4">
+                            Your loan request is being reviewed.
+                        </p>
+                        <div className="p-4 bg-slate-50 rounded-xl w-full border border-slate-100">
+                            <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">AI Credit Score</p>
+                            <p className="text-3xl font-black text-blue-600">{success.aiScore}%</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Eligible for instant approval</p>
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Group</label>
+                            <select
+                                value={selectedGroupId}
+                                onChange={(e) => setSelectedGroupId(e.target.value)}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                required
+                            >
+                                {groups.map(group => (
+                                    <option key={group.id} value={group.id}>{group.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Requested Amount (RWF)</label>
+                            <input
+                                type="number"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="e.g. 50000"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                required
+                                min="1000"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Months)</label>
+                            <select
+                                value={duration}
+                                onChange={(e) => setDuration(e.target.value)}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none"
+                            >
+                                {[1, 2, 3, 4, 5, 6].map(m => (
+                                    <option key={m} value={m}>{m} {m === 1 ? 'Month' : 'Months'}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Loan Purpose</label>
+                            <textarea
+                                value={purpose}
+                                onChange={(e) => setPurpose(e.target.value)}
+                                placeholder="Describe why you need this loan..."
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none min-h-[80px]"
+                                required
+                            />
+                        </div>
+
+                        <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3 text-blue-800 text-xs">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <p>Interest rate is fixed at 5% per month. Total repayment for this loan will be calculated upon approval.</p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={submitting || groups.length === 0}
+                            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 mt-4"
+                        >
+                            {submitting ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Submitting...</>
+                            ) : (
+                                "Apply Now"
+                            )}
+                        </button>
+                    </form>
+                )}
+            </Modal>
+        </div >
     );
 }

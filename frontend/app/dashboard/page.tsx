@@ -1,4 +1,7 @@
+"use client";
+
 import { StatCard, Card } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import {
     Wallet,
@@ -8,10 +11,16 @@ import {
     ArrowUpRight,
     ArrowDownLeft,
     Calendar,
-    Banknote
+    Banknote,
+    Loader2,
+    CheckCircle2,
+    Plus
 } from 'lucide-react';
 
 import { dashboardService } from '@/lib/services/dashboard.service';
+import { savingService } from '@/lib/services/saving.service';
+import { loanService } from '@/lib/services/loan.service';
+import { groupService } from '@/lib/services/group.service';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 
@@ -20,22 +29,92 @@ export default function Dashboard() {
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchSummary = async () => {
-            try {
-                const result = await dashboardService.getSummary();
-                setSummary(result.data);
-            } catch (error) {
-                console.error('Error fetching dashboard summary:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    // Modal states
+    const [showSavingModal, setShowSavingModal] = useState(false);
+    const [showLoanModal, setShowLoanModal] = useState(false);
 
+    // Form states
+    const [groups, setGroups] = useState<any[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState("");
+    const [amount, setAmount] = useState("");
+    const [notes, setNotes] = useState("");
+    const [purpose, setPurpose] = useState("");
+    const [duration, setDuration] = useState("1");
+    const [submitting, setSubmitting] = useState(false);
+    const [success, setSuccess] = useState<any>(null);
+
+    const fetchSummary = async () => {
+        setLoading(true);
+        try {
+            const result = await dashboardService.getSummary();
+            setSummary(result.data);
+
+            const groupsRes = await groupService.getMyGroups();
+            setGroups(groupsRes.data);
+            if (groupsRes.data.length > 0) {
+                setSelectedGroupId(groupsRes.data[0].id);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard summary:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         if (user) {
             fetchSummary();
         }
     }, [user]);
+
+    const handleSavingSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await savingService.recordContribution({
+                groupId: selectedGroupId,
+                amount: parseFloat(amount),
+                paymentMethod: 'momo',
+                notes
+            });
+            setSuccess('saving');
+            setTimeout(() => {
+                setShowSavingModal(false);
+                setSuccess(null);
+                setAmount("");
+                fetchSummary();
+            }, 2000);
+        } catch (error) {
+            alert("Failed to record deposit");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleLoanSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const res = await loanService.applyForLoan({
+                groupId: selectedGroupId,
+                amount: parseFloat(amount),
+                purpose: purpose,
+                durationMonths: parseInt(duration)
+            });
+            setSuccess({ type: 'loan', data: res.data });
+            setTimeout(() => {
+                setShowLoanModal(false);
+                setSuccess(null);
+                setAmount("");
+                setPurpose("");
+                fetchSummary();
+            }, 3000);
+        } catch (error) {
+            alert("Failed to submit loan request");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-RW', {
@@ -44,6 +123,7 @@ export default function Dashboard() {
             minimumFractionDigits: 0
         }).format(amount).replace('RWF', '').trim() + ' RWF';
     };
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-8">
             {/* Header */}
@@ -113,22 +193,20 @@ export default function Dashboard() {
                                 summary?.recentTransactions?.map((tx: any, i: number) => (
                                     <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                         <div className="flex items-center gap-4">
-                                            <div className={cn("p-2 rounded-full", tx.type === 'contribution' || tx.type === 'loan_repayment' ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
-                                                {tx.amount > 0 ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                            <div className={cn("p-2 rounded-full", tx.type === 'regular' || tx.type === 'contribution' ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600")}>
+                                                <ArrowDownLeft className="w-5 h-5" />
                                             </div>
                                             <div>
                                                 <p className="font-medium text-slate-900">{tx.member_name || 'Member'}</p>
-                                                <p className="text-xs text-slate-500">{tx.type.replace('_', ' ')} • {new Date(tx.created_at).toLocaleDateString()}</p>
+                                                <p className="text-xs text-slate-500 capitalize">{tx.type.replace('_', ' ')} • {new Date(tx.created_at).toLocaleDateString()}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={cn("font-bold", tx.amount > 0 ? "text-emerald-700" : "text-slate-700")}>
-                                                {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                                            <p className={cn("font-bold text-emerald-700")}>
+                                                {formatCurrency(tx.amount)}
                                             </p>
-                                            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider",
-                                                tx.status === 'completed' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                                            )}>
-                                                {tx.status}
+                                            <span className={cn("text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider bg-emerald-50 text-emerald-600")}>
+                                                completed
                                             </span>
                                         </div>
                                     </div>
@@ -142,29 +220,35 @@ export default function Dashboard() {
                 <div className="space-y-6">
                     <h2 className="text-lg font-bold text-slate-800">Quick Actions</h2>
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left">
+                        <button
+                            onClick={() => setShowSavingModal(true)}
+                            className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left"
+                        >
                             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Wallet className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block">Record<br />Saving</span>
+                            <span className="font-semibold text-slate-700 block text-sm">Record<br />Saving</span>
                         </button>
-                        <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all group text-left">
+                        <button
+                            onClick={() => setShowLoanModal(true)}
+                            className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all group text-left"
+                        >
                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Banknote className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block">Approve<br />Loan</span>
+                            <span className="font-semibold text-slate-700 block text-sm">Apply for<br />Loan</span>
                         </button>
                         <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-purple-500 hover:shadow-md transition-all group text-left">
                             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Users className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block">Add<br />Member</span>
+                            <span className="font-semibold text-slate-700 block text-sm">Add<br />Member</span>
                         </button>
                         <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all group text-left">
                             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <AlertCircle className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block">Send<br />Reminder</span>
+                            <span className="font-semibold text-slate-700 block text-sm">Send<br />Reminder</span>
                         </button>
                     </div>
 
@@ -183,6 +267,99 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Record Deposit Modal */}
+            <Modal
+                isOpen={showSavingModal}
+                onClose={() => !submitting && setShowSavingModal(false)}
+                title="Record Deposit"
+            >
+                {success === 'saving' ? (
+                    <div className="py-8 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900">Success!</h4>
+                        <p className="text-slate-500 mt-2">Contribution recorded.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSavingSubmit} className="space-y-4">
+                        <select
+                            value={selectedGroupId}
+                            onChange={(e) => setSelectedGroupId(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            required
+                        >
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="Amount (RWF)"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            required
+                        />
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Record Deposit"}
+                        </button>
+                    </form>
+                )}
+            </Modal>
+
+            {/* Request Loan Modal */}
+            <Modal
+                isOpen={showLoanModal}
+                onClose={() => !submitting && setShowLoanModal(false)}
+                title="Request Loan"
+            >
+                {typeof success === 'object' && success?.type === 'loan' ? (
+                    <div className="py-8 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900">Application Sent!</h4>
+                        <p className="text-slate-500 mt-2">AI Score: {success.data.aiScore}%</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleLoanSubmit} className="space-y-4">
+                        <select
+                            value={selectedGroupId}
+                            onChange={(e) => setSelectedGroupId(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            required
+                        >
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="Amount (RWF)"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            required
+                        />
+                        <textarea
+                            value={purpose}
+                            onChange={(e) => setPurpose(e.target.value)}
+                            placeholder="Loan Purpose"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            required
+                        />
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request Loan"}
+                        </button>
+                    </form>
+                )}
+            </Modal>
         </div>
     );
 }
