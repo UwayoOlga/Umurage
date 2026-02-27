@@ -42,14 +42,14 @@ export const register = async (req: Request, res: Response) => {
 
         const accessToken = jwt.sign(
             { id: user.id, phone: user.phone, role: user.role },
-            process.env.JWT_SECRET!,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+            process.env.JWT_SECRET as string,
+            { expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any }
         );
 
         const refreshToken = jwt.sign(
             { id: user.id },
-            process.env.JWT_REFRESH_SECRET!,
-            { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+            process.env.JWT_REFRESH_SECRET as string,
+            { expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any }
         );
 
         // Store refresh token in SQLite
@@ -91,14 +91,14 @@ export const login = async (req: Request, res: Response) => {
 
         const accessToken = jwt.sign(
             { id: user.id, phone: user.phone, role: user.role },
-            process.env.JWT_SECRET!,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+            process.env.JWT_SECRET as string,
+            { expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any }
         );
 
         const refreshToken = jwt.sign(
             { id: user.id },
-            process.env.JWT_REFRESH_SECRET!,
-            { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+            process.env.JWT_REFRESH_SECRET as string,
+            { expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any }
         );
 
         const now = new Date().toISOString();
@@ -128,7 +128,7 @@ export const refreshToken = async (req: Request, res: Response) => {
             throw new AppError('Refresh token is required', 400);
         }
 
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as any;
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as any;
 
         const stored = db.prepare('SELECT token FROM refresh_tokens WHERE user_id = ?').get(decoded.id) as any;
         if (!stored || stored.token !== refreshToken) {
@@ -142,8 +142,8 @@ export const refreshToken = async (req: Request, res: Response) => {
 
         const newAccessToken = jwt.sign(
             { id: user.id, phone: user.phone, role: user.role },
-            process.env.JWT_SECRET!,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+            process.env.JWT_SECRET as string,
+            { expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any }
         );
 
         res.status(200).json({
@@ -164,7 +164,7 @@ export const logout = async (req: Request, res: Response) => {
     try {
         const { refreshToken } = req.body;
         if (refreshToken) {
-            const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as any;
+            const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as any;
             db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').run(decoded.id);
         }
         res.status(200).json({ success: true, message: 'Logout successful' });

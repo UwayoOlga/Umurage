@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import DatabaseConstructor from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
@@ -10,7 +10,8 @@ if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-const db = new Database(DB_PATH);
+// Explicitly type to avoid TS4094
+const db: DatabaseConstructor.Database = new DatabaseConstructor(DB_PATH);
 
 // Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');

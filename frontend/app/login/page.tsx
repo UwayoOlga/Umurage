@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
-import { Eye, EyeOff, Phone, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Phone, Lock, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -63,6 +63,15 @@ export default function LoginPage() {
             <div className="relative w-full max-w-md">
                 {/* Card */}
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+                    {/* Back Link */}
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs mb-6 group"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                        Back to Dashboard
+                    </Link>
+
                     {/* Logo */}
                     <div className="flex flex-col items-center mb-8">
                         <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">

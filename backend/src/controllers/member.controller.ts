@@ -15,14 +15,14 @@ export const getMyGroupMembers = async (req: AuthRequest, res: Response) => {
         }
 
         const placeholders = groupIds.map(() => '?').join(',');
-        const query = \`
+        const query = `
             SELECT m.*, u.name, u.phone, g.name as group_name
             FROM members m
             JOIN users u ON m.user_id = u.id
             JOIN groups g ON m.group_id = g.id
-            WHERE m.group_id IN (\${placeholders})
+            WHERE m.group_id IN (${placeholders})
             ORDER BY g.name ASC, u.name ASC
-        \`;
+        `;
 
         const members = db.prepare(query).all(...groupIds);
 
