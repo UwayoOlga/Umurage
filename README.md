@@ -5,7 +5,6 @@
 Umurage digitizes traditional rotating savings groups with secure contributions, loan management, member tracking, and full financial transparency all in one app.
 
 ---
-
 ## Tech Stack
 
 | Layer | Technologies |
