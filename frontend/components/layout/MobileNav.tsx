@@ -8,23 +8,35 @@ import {
     Users,
     PiggyBank,
     Banknote,
+    Calendar,
     Menu
 } from "lucide-react";
+
+import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
     { label: "Home", href: "/dashboard", icon: LayoutDashboard },
     { label: "Members", href: "/dashboard/members", icon: Users },
+    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
     { label: "Savings", href: "/dashboard/savings", icon: PiggyBank },
     { label: "Loans", href: "/dashboard/loans", icon: Banknote },
-    { label: "Menu", href: "/dashboard/menu", icon: Menu },
+];
+
+const adminNavItems = [
+    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Users", href: "/dashboard/admin/users", icon: Users },
+    { label: "Groups", href: "/dashboard/admin/groups", icon: Menu },
 ];
 
 export function MobileNav() {
     const pathname = usePathname();
+    const { isAdmin } = useAuth();
+
+    const items = isAdmin && isAdmin() ? adminNavItems : navItems;
 
     return (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-2 z-50 flex justify-between items-center pb-safe">
-            {navItems.map((item) => {
+            {items.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                     <Link

@@ -12,7 +12,8 @@ import {
     Settings,
     LogOut,
     Shield,
-    Layers
+    Layers,
+    Calendar
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Members", href: "/dashboard/members", icon: Users },
+    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
     { label: "Savings", href: "/dashboard/savings", icon: PiggyBank },
     { label: "Loans", href: "/dashboard/loans", icon: Banknote },
     { label: "Transactions", href: "/dashboard/transactions", icon: History },
@@ -51,7 +53,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
+                {!isAdmin() && navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link
