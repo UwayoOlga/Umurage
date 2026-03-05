@@ -24,6 +24,7 @@ db.exec(`
         phone TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT NOT NULL,
+        national_id TEXT UNIQUE,
         role TEXT DEFAULT 'member' CHECK (role IN ('member', 'admin', 'treasurer', 'secretary')),
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -39,6 +40,8 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
         name TEXT NOT NULL,
+        rca_number TEXT UNIQUE,
+        description TEXT,
         admin_id TEXT REFERENCES users(id) ON DELETE SET NULL,
         contribution_amount REAL,
         contribution_frequency TEXT CHECK (contribution_frequency IN ('weekly', 'biweekly', 'monthly')),
@@ -101,6 +104,34 @@ db.exec(`
         created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS meetings (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+        group_id TEXT REFERENCES groups(id) ON DELETE CASCADE,
+        scheduled_for TEXT NOT NULL,
+        async_cutoff_time TEXT NOT NULL,
+        location TEXT,
+        status TEXT DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'ACTIVE', 'COMPLETED', 'CANCELLED')),
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS attendance (
+        meeting_id TEXT REFERENCES meetings(id) ON DELETE CASCADE,
+        member_id TEXT REFERENCES members(id) ON DELETE CASCADE,
+        status TEXT DEFAULT 'PRESENT' CHECK (status IN ('PRESENT', 'ABSENT', 'EXCUSED')),
+        UNIQUE(meeting_id, member_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS agenda_items (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+        meeting_id TEXT REFERENCES meetings(id) ON DELETE CASCADE,
+        type TEXT CHECK (type IN ('CONTRIBUTION_SUMMARY', 'LOAN_APPROVAL', 'DISCUSSION_POINT')),
+        description TEXT,
+        resolved BOOLEAN DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
     CREATE INDEX IF NOT EXISTS idx_members_group ON members(group_id);
     CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
@@ -109,7 +140,13 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status);
     CREATE INDEX IF NOT EXISTS idx_transactions_group ON transactions(group_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_meetings_group ON meetings(group_id);
 `);
+
+// Run migrations gracefully for existing DBs
+try { db.exec(`ALTER TABLE users ADD COLUMN national_id TEXT UNIQUE;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN rca_number TEXT UNIQUE;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN description TEXT;`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

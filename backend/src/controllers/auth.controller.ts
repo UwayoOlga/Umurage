@@ -17,16 +17,16 @@ function uuidv4() {
 // Register new user
 export const register = async (req: Request, res: Response) => {
     try {
-        const { phone, password, name } = req.body;
+        const { phone, password, name, nationalId } = req.body;
 
-        if (!phone || !password || !name) {
-            throw new AppError('Phone, password, and name are required', 400);
+        if (!phone || !password || !name || !nationalId) {
+            throw new AppError('Phone, password, name, and National ID are required', 400);
         }
 
         // Check if user exists
-        const existing = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone);
+        const existing = db.prepare('SELECT id FROM users WHERE phone = ? OR national_id = ?').get(phone, nationalId);
         if (existing) {
-            throw new AppError('User with this phone number already exists', 409);
+            throw new AppError('User with this phone number or National ID already exists', 409);
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
@@ -34,11 +34,11 @@ export const register = async (req: Request, res: Response) => {
         const now = new Date().toISOString();
 
         db.prepare(
-            `INSERT INTO users (id, phone, password_hash, name, role, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'member', ?, ?)`
-        ).run(id, phone, hashedPassword, name, now, now);
+            `INSERT INTO users (id, phone, password_hash, name, national_id, role, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'member', ?, ?)`
+        ).run(id, phone, hashedPassword, name, nationalId, now, now);
 
-        const user = db.prepare('SELECT id, phone, name, role, created_at FROM users WHERE id = ?').get(id) as any;
+        const user = db.prepare('SELECT id, phone, name, national_id, role, created_at FROM users WHERE id = ?').get(id) as any;
 
         const accessToken = jwt.sign(
             { id: user.id, phone: user.phone, role: user.role },
