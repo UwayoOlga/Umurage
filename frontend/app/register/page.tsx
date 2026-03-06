@@ -12,6 +12,7 @@ export default function RegisterPage() {
     const { register, user } = useAuth();
 
     const [name, setName] = useState('');
+    const [nationalId, setNationalId] = useState('');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,7 +32,7 @@ export default function RegisterPage() {
         e.preventDefault();
         setError('');
 
-        if (!name.trim() || !phone.trim() || !password || !confirmPassword) {
+        if (!name.trim() || !phone.trim() || !nationalId.trim() || !password || !confirmPassword) {
             setError('All fields are required.');
             return;
         }
@@ -46,7 +47,7 @@ export default function RegisterPage() {
 
         setLoading(true);
         try {
-            const message = await register(phone.trim(), password, name.trim());
+            const message = await register(phone.trim(), password, name.trim(), nationalId.trim());
             setSuccess(message);
             // Redirection happens via useEffect when user state changes
         } catch (err: any) {
@@ -117,6 +118,22 @@ export default function RegisterPage() {
                                     placeholder="e.g. Amina Uwase"
                                     className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                                     autoComplete="name"
+                                    disabled={loading}
+                                />
+                            </div>
+                        </div>
+
+                        {/* National ID */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1.5">National ID (16 Digits)</label>
+                            <div className="relative">
+                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={nationalId}
+                                    onChange={(e) => setNationalId(e.target.value.replace(/[^0-9]/g, '').slice(0, 16))}
+                                    placeholder="e.g. 1199..."
+                                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                                     disabled={loading}
                                 />
                             </div>

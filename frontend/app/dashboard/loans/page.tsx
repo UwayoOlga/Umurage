@@ -17,8 +17,10 @@ import { useEffect, useState } from "react";
 import { dashboardService } from "@/lib/services/dashboard.service";
 import { loanService } from "@/lib/services/loan.service";
 import { groupService } from "@/lib/services/group.service";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoansPage() {
+    const { logout } = useAuth();
     const [loans, setLoans] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -47,8 +49,12 @@ export default function LoansPage() {
             if (groupsRes.data.length > 0) {
                 setSelectedGroupId(groupsRes.data[0].id);
             }
-        } catch (error) {
-            console.error("Error fetching loans:", error);
+        } catch (error: any) {
+            if (error.message && error.message.toLowerCase().includes('token')) {
+                logout();
+            } else {
+                console.log("Error fetching loans:", error);
+            }
         } finally {
             setLoading(false);
         }

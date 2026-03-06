@@ -25,13 +25,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 
 export default function Dashboard() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     // Modal states
     const [showSavingModal, setShowSavingModal] = useState(false);
     const [showLoanModal, setShowLoanModal] = useState(false);
+    const [showJoinModal, setShowJoinModal] = useState(false);
 
     // Form states
     const [groups, setGroups] = useState<any[]>([]);
@@ -40,6 +41,11 @@ export default function Dashboard() {
     const [notes, setNotes] = useState("");
     const [purpose, setPurpose] = useState("");
     const [duration, setDuration] = useState("1");
+    // Join Community states
+    const [nationalId, setNationalId] = useState("");
+    const [rcaNumber, setRcaNumber] = useState("");
+    const [communityName, setCommunityName] = useState("");
+
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState<any>(null);
 
@@ -54,8 +60,12 @@ export default function Dashboard() {
             if (groupsRes.data.length > 0) {
                 setSelectedGroupId(groupsRes.data[0].id);
             }
-        } catch (error) {
-            console.error('Error fetching dashboard summary:', error);
+        } catch (error: any) {
+            if (error.message && error.message.toLowerCase().includes('token')) {
+                logout(); // Automatically redirect to login
+            } else {
+                console.log('Error fetching dashboard summary:', error);
+            }
         } finally {
             setLoading(false);
         }
@@ -111,6 +121,27 @@ export default function Dashboard() {
             }, 3000);
         } catch (error) {
             alert("Failed to submit loan request");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleJoinSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await groupService.joinGroup({ nationalId, rcaNumber, communityName });
+            setSuccess('join');
+            setTimeout(() => {
+                setShowJoinModal(false);
+                setSuccess(null);
+                setNationalId("");
+                setRcaNumber("");
+                setCommunityName("");
+                fetchSummary();
+            }, 2000);
+        } catch (error: any) {
+            alert(error.message || "Failed to join community");
         } finally {
             setSubmitting(false);
         }
@@ -238,11 +269,11 @@ export default function Dashboard() {
                             </div>
                             <span className="font-semibold text-slate-700 block text-sm">Apply for<br />Loan</span>
                         </button>
-                        <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-purple-500 hover:shadow-md transition-all group text-left">
-                            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
-                                <Users className="w-6 h-6" />
+                        <button onClick={() => setShowJoinModal(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left">
+                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
+                                <Plus className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block text-sm">Add<br />Member</span>
+                            <span className="font-semibold text-slate-700 block text-sm">Join<br />Community</span>
                         </button>
                         <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all group text-left">
                             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
@@ -356,6 +387,74 @@ export default function Dashboard() {
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request Loan"}
+                        </button>
+                    </form>
+                )}
+            </Modal>
+
+            {/* Join Community Modal */}
+            <Modal
+                isOpen={showJoinModal}
+                onClose={() => !submitting && setShowJoinModal(false)}
+                title="Join Official RCA Community"
+            >
+                {success === 'join' ? (
+                    <div className="py-8 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle2 className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900">Successfully Joined!</h4>
+                        <p className="text-slate-500 mt-2">You are now an active member.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleJoinSubmit} className="space-y-4">
+                        <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg mb-4">
+                            <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider mb-1">Official Verification</p>
+                            <p className="text-xs text-amber-700">Provide the RCA details to instantly join your registered community.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Your National ID</label>
+                            <input
+                                type="text"
+                                value={nationalId}
+                                onChange={(e) => setNationalId(e.target.value.replace(/[^0-9]/g, '').slice(0, 16))}
+                                placeholder="16-Digit ID Number"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">RCA Number</label>
+                            <input
+                                type="text"
+                                value={rcaNumber}
+                                onChange={(e) => setRcaNumber(e.target.value)}
+                                placeholder="e.g. RCA/2026/001234"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 uppercase"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Community Name</label>
+                            <input
+                                type="text"
+                                value={communityName}
+                                onChange={(e) => setCommunityName(e.target.value)}
+                                placeholder="Exact Official Name"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                required
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 mt-2"
+                        >
+                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify Details & Join"}
                         </button>
                     </form>
                 )}

@@ -19,10 +19,12 @@ export const getUserTransactions = async (req: AuthRequest, res: Response) => {
         const query = `
             SELECT t.*, 
                    m1.name as from_member_name, 
-                   m2.name as to_member_name
+                   m2.name as to_member_name,
+                   g.name as group_name
             FROM transactions t
             LEFT JOIN (SELECT m.id, u.name FROM members m JOIN users u ON m.user_id = u.id) m1 ON t.from_member_id = m1.id
             LEFT JOIN (SELECT m.id, u.name FROM members m JOIN users u ON m.user_id = u.id) m2 ON t.to_member_id = m2.id
+            LEFT JOIN groups g ON t.group_id = g.id
             WHERE t.from_member_id IN (${placeholders}) OR t.to_member_id IN (${placeholders})
             ORDER BY t.created_at DESC
         `;

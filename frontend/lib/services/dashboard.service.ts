@@ -61,6 +61,30 @@ class DashboardService {
         return response.json();
     }
 
+    async approveMember(memberId: string) {
+        const response = await fetch(`${API_URL}/members/${memberId}/approve`, {
+            method: 'PATCH',
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to approve request');
+        }
+        return response.json();
+    }
+
+    async rejectMember(memberId: string) {
+        const response = await fetch(`${API_URL}/members/${memberId}/reject`, {
+            method: 'DELETE',
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to reject request');
+        }
+        return response.json();
+    }
+
     async getSummary() {
         const response = await fetch(`${API_URL}/dashboard/summary`, {
             headers: this.getAuthHeaders(),

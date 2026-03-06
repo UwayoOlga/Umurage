@@ -9,14 +9,15 @@ import {
     PiggyBank,
     Banknote,
     Calendar,
-    Menu
+    Menu,
+    Layers
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
     { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Members", href: "/dashboard/members", icon: Users },
+    { label: "Communities", href: "/dashboard/communities", icon: Layers },
     { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
     { label: "Savings", href: "/dashboard/savings", icon: PiggyBank },
     { label: "Loans", href: "/dashboard/loans", icon: Banknote },

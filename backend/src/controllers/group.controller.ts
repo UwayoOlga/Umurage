@@ -140,10 +140,10 @@ export const joinGroup = async (req: AuthRequest, res: Response) => {
             throw new AppError('You are already a member of this community.', 409);
         }
 
-        // Add user as member
+        // Add user as member with pending status
         db.prepare(`
             INSERT INTO members (group_id, user_id, role, status)
-            VALUES (?, ?, 'member', 'active')
+            VALUES (?, ?, 'member', 'pending')
         `).run(group.id, userId);
 
         res.status(200).json({

@@ -62,6 +62,21 @@ class GroupService {
 
         return response.json();
     }
+
+    async joinGroup(data: { nationalId: string, rcaNumber: string, communityName: string }) {
+        const response = await fetch(`${API_URL}/groups/join`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to join group');
+        }
+
+        return response.json();
+    }
 }
 
 export const groupService = new GroupService();

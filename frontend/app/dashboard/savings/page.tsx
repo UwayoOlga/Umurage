@@ -19,8 +19,10 @@ import { useEffect, useState } from "react";
 import { dashboardService } from "@/lib/services/dashboard.service";
 import { savingService } from "@/lib/services/saving.service";
 import { groupService } from "@/lib/services/group.service";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SavingsPage() {
+    const { logout } = useAuth();
     const [filter, setFilter] = useState("All");
     const [savingsData, setSavingsData] = useState<any>(null);
     const [summary, setSummary] = useState<any>(null);
@@ -50,8 +52,12 @@ export default function SavingsPage() {
             if (groupsRes.data.length > 0) {
                 setSelectedGroupId(groupsRes.data[0].id);
             }
-        } catch (error) {
-            console.error("Error fetching savings data:", error);
+        } catch (error: any) {
+            if (error.message && error.message.toLowerCase().includes('token')) {
+                logout();
+            } else {
+                console.log("Error fetching savings data:", error);
+            }
         } finally {
             setLoading(false);
         }

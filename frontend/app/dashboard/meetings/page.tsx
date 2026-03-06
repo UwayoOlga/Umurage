@@ -14,9 +14,8 @@ import { cn } from "@/lib/utils";
 import { meetingService } from "@/lib/services/meeting.service";
 import { groupService } from "@/lib/services/group.service";
 import { useAuth } from "@/context/AuthContext";
-
 export default function MeetingsPage() {
-    const { isAdmin } = useAuth();
+    const { isAdmin, logout } = useAuth();
 
     const [meetings, setMeetings] = useState<any[]>([]);
     const [groups, setGroups] = useState<any[]>([]);
@@ -55,8 +54,12 @@ export default function MeetingsPage() {
                     setFormData(prev => ({ ...prev, group_id: led[0].id }));
                 }
             }
-        } catch (error) {
-            console.error("Error fetching data:", error);
+        } catch (error: any) {
+            if (error.message && error.message.toLowerCase().includes('token')) {
+                logout();
+            } else {
+                console.log("Error fetching data:", error);
+            }
         } finally {
             setLoading(false);
         }

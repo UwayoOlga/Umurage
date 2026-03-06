@@ -59,6 +59,7 @@ db.exec(`
         role TEXT DEFAULT 'member' CHECK (role IN ('admin', 'treasurer', 'secretary', 'member')),
         joined_at TEXT DEFAULT (datetime('now')),
         status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
+        rotation_order INTEGER,
         UNIQUE(group_id, user_id)
     );
 
@@ -141,12 +142,24 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_transactions_group ON transactions(group_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
     CREATE INDEX IF NOT EXISTS idx_meetings_group ON meetings(group_id);
+
+    CREATE TABLE IF NOT EXISTS rotations (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+        group_id TEXT REFERENCES groups(id) ON DELETE CASCADE,
+        current_turn_member_id TEXT REFERENCES members(id),
+        amount_per_member REAL,
+        payout_date TEXT,
+        status TEXT DEFAULT 'active' CHECK(status in ('active', 'completed')),
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
 `);
 
 // Run migrations gracefully for existing DBs
 try { db.exec(`ALTER TABLE users ADD COLUMN national_id TEXT UNIQUE;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN rca_number TEXT UNIQUE;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN description TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE members ADD COLUMN rotation_order INTEGER;`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

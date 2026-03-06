@@ -11,6 +11,7 @@ import ussdRoutes from './routes/ussd.routes';
 import adminRoutes from './routes/admin.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import meetingRoutes from './routes/meeting.routes';
+import rotationRoutes from './routes/rotation.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
 
@@ -49,6 +50,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/ussd', ussdRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/rotations', rotationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
