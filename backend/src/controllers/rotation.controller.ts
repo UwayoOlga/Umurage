@@ -107,3 +107,63 @@ export const getRotationInfo = async (req: any, res: any) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const disbursePayout = async (req: any, res: any) => {
+    try {
+        const { groupId } = req.params;
+        const userId = req.user?.id;
+
+        const rotation = db.prepare(`
+            SELECT r.*, g.contribution_frequency, m.rotation_order as current_order
+            FROM rotations r
+            JOIN groups g ON r.group_id = g.id
+            JOIN members m ON r.current_turn_member_id = m.id
+            WHERE r.group_id = ? AND r.status = 'active'
+        `).get(groupId) as any;
+
+        if (!rotation) return res.status(404).json({ error: 'No active rotation found' });
+
+        // Check permission
+        const memberCheck = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        if (!memberCheck || !['admin', 'treasurer'].includes(memberCheck.role)) {
+            return res.status(403).json({ error: 'Only group admins or treasurers can disburse payouts' });
+        }
+
+        const nextOrder = rotation.current_order + 1;
+        const nextMember = db.prepare('SELECT id FROM members WHERE group_id = ? AND rotation_order = ?').get(groupId, nextOrder) as any;
+
+        const transaction = db.transaction(() => {
+            // 1. Record share_out transaction
+            db.prepare(`
+                INSERT INTO transactions (group_id, type, amount, to_member_id, reference_id, reference_type, status, notes)
+                VALUES (?, 'share_out', ?, ?, ?, 'rotation', 'completed', ?)
+            `).run(groupId, rotation.amount_per_member * (db.prepare('SELECT count(*) as count FROM members WHERE group_id = ? AND status = "active"').get(groupId) as any).count, rotation.current_turn_member_id, rotation.id, 'Monthly Ikimina payout disbursed');
+
+            if (nextMember) {
+                // Advance turn
+                const currentPayoutDate = new Date(rotation.payout_date);
+                let nextPayoutDate = new Date(currentPayoutDate);
+
+                if (rotation.contribution_frequency === 'weekly') nextPayoutDate.setDate(currentPayoutDate.getDate() + 7);
+                else if (rotation.contribution_frequency === 'biweekly') nextPayoutDate.setDate(currentPayoutDate.getDate() + 14);
+                else if (rotation.contribution_frequency === 'monthly') nextPayoutDate.setMonth(currentPayoutDate.getMonth() + 1);
+
+                db.prepare(`
+                    UPDATE rotations 
+                    SET current_turn_member_id = ?, payout_date = ?, updated_at = ? 
+                    WHERE id = ?
+                `).run(nextMember.id, nextPayoutDate.toISOString().split('T')[0], new Date().toISOString(), rotation.id);
+            } else {
+                // Complete cycle
+                db.prepare("UPDATE rotations SET status = 'completed', updated_at = ? WHERE id = ?").run(new Date().toISOString(), rotation.id);
+            }
+        });
+
+        transaction();
+
+        res.status(200).json({ message: nextMember ? 'Payout disbursed and turn advanced!' : 'Final payout disbursed. Rotation completed!' });
+    } catch (error) {
+        console.error('Disburse payout error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

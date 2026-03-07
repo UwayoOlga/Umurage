@@ -13,12 +13,46 @@ class LoanService {
         const response = await fetch(`${API_URL}/loans`, {
             headers: this.getAuthHeaders(),
         });
-
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Failed to fetch loans');
         }
+        return response.json();
+    }
 
+    async getPendingLoans() {
+        const response = await fetch(`${API_URL}/loans/pending`, {
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch pending loans');
+        }
+        return response.json();
+    }
+
+    async approveLoan(loanId: string) {
+        const response = await fetch(`${API_URL}/loans/${loanId}/approve`, {
+            method: 'PATCH',
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to approve loan');
+        }
+        return response.json();
+    }
+
+    async rejectLoan(loanId: string, reason?: string) {
+        const response = await fetch(`${API_URL}/loans/${loanId}/reject`, {
+            method: 'PATCH',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ reason }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to reject loan');
+        }
         return response.json();
     }
 
@@ -28,12 +62,10 @@ class LoanService {
             headers: this.getAuthHeaders(),
             body: JSON.stringify(data),
         });
-
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Failed to submit loan application');
         }
-
         return response.json();
     }
 }

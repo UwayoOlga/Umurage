@@ -85,16 +85,27 @@ class DashboardService {
         return response.json();
     }
 
-    async getSummary() {
-        const response = await fetch(`${API_URL}/dashboard/summary`, {
+    async getGroupMemberList(groupId: string) {
+        const response = await fetch(`${API_URL}/members/group/${groupId}`, {
             headers: this.getAuthHeaders(),
         });
-
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch dashboard summary');
+            throw new Error(error.message || 'Failed to fetch group members');
         }
+        return response.json();
+    }
 
+    async promoteRole(memberId: string, newRole: string) {
+        const response = await fetch(`${API_URL}/members/${memberId}/role`, {
+            method: 'PATCH',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ newRole }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update role');
+        }
         return response.json();
     }
 }
