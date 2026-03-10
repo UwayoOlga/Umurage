@@ -225,9 +225,14 @@ export default function CommunityDetailsPage() {
                                             <p className="text-4xl font-extrabold text-slate-900">{formatCurrency(rotation.amount_per_member)}</p>
                                         </div>
                                         <div className="overflow-hidden h-3 rounded-full bg-slate-100">
-                                            <div style={{ width: '40%' }} className="h-3 rounded-full bg-emerald-500 transition-all duration-1000" />
+                                            <div style={{ width: `${rotation.collection?.progressPercentage || 0}%` }} className="h-3 rounded-full bg-emerald-500 transition-all duration-1000" />
                                         </div>
-                                        <p className="text-center text-xs text-slate-400 mt-2">40% collected</p>
+                                        <p className="text-center text-xs text-slate-400 mt-2">
+                                            {rotation.collection?.progressPercentage || 0}% collected
+                                            <span className="block opacity-60 mt-1">
+                                                ({formatCurrency(rotation.collection?.totalCollected || 0)} / {formatCurrency(rotation.collection?.expectedTotal || 0)})
+                                            </span>
+                                        </p>
                                     </div>
                                     {isLeader && (
                                         <button

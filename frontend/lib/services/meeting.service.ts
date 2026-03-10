@@ -44,6 +44,30 @@ class MeetingService {
         }
         return response.json();
     }
+
+    async getAttendance(meetingId: string) {
+        const response = await fetch(`${API_URL}/meetings/${meetingId}/attendance`, {
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch attendance');
+        }
+        return response.json();
+    }
+
+    async updateAttendance(meetingId: string, memberId: string, status: string) {
+        const response = await fetch(`${API_URL}/meetings/${meetingId}/attendance`, {
+            method: 'PUT',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ member_id: memberId, status }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update attendance');
+        }
+        return response.json();
+    }
 }
 
 export const meetingService = new MeetingService();

@@ -35,6 +35,11 @@ export default function MeetingsPage() {
         location: ''
     });
 
+    const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
+    const [attendanceList, setAttendanceList] = useState<any[]>([]);
+    const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+    const [loadingAttendance, setLoadingAttendance] = useState(false);
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -93,6 +98,31 @@ export default function MeetingsPage() {
         } catch (error: any) {
             console.error("Error starting meeting", error);
             alert(error.message || "Error starting meeting.");
+        }
+    };
+
+    const openAttendance = async (meeting: any) => {
+        setSelectedMeeting(meeting);
+        setIsAttendanceModalOpen(true);
+        setLoadingAttendance(true);
+        try {
+            const res = await meetingService.getAttendance(meeting.id);
+            setAttendanceList(res.data || []);
+        } catch (error) {
+            console.error("Error fetching attendance", error);
+        } finally {
+            setLoadingAttendance(false);
+        }
+    };
+
+    const handleUpdateAttendance = async (memberId: string, status: string) => {
+        if (!selectedMeeting) return;
+        try {
+            await meetingService.updateAttendance(selectedMeeting.id, memberId, status);
+            // Update local state
+            setAttendanceList(prev => prev.map(a => a.member_id === memberId ? { ...a, status } : a));
+        } catch (error: any) {
+            alert(error.message || "Failed to update attendance.");
         }
     };
 
@@ -179,8 +209,11 @@ export default function MeetingsPage() {
                                             Generate Agenda & Start
                                         </button>
                                     ) : meeting.status === 'ACTIVE' ? (
-                                        <button className="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium text-sm transition-colors w-full md:w-auto shadow-sm shadow-emerald-500/20">
-                                            Join Meeting Sync
+                                        <button
+                                            onClick={() => openAttendance(meeting)}
+                                            className="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium text-sm transition-colors w-full md:w-auto shadow-sm shadow-emerald-500/20"
+                                        >
+                                            {ledGroups.some(g => g.id === meeting.group_id) ? "Manage attendance" : "Join Sync"}
                                         </button>
                                     ) : (
                                         <button className="px-4 py-2 text-slate-500 bg-slate-50 rounded-xl hover:bg-slate-100 font-medium text-sm transition-colors w-full md:w-auto">
@@ -304,6 +337,74 @@ export default function MeetingsPage() {
                                 Schedule Meeting
                             </button>
                         </form>
+                    </Card>
+                </div>
+            )}
+
+            {/* Attendance Modal */}
+            {isAttendanceModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <Card className="w-full max-w-2xl bg-white shadow-xl shadow-slate-900/10 border-0 overflow-hidden">
+                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900">Attendance Roll Call</h2>
+                                <p className="text-xs text-slate-500">{groupMap.get(selectedMeeting?.group_id)} • {new Date(selectedMeeting?.scheduled_for).toLocaleDateString()}</p>
+                            </div>
+                            <button onClick={() => setIsAttendanceModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                        </div>
+
+                        <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
+                            {loadingAttendance ? (
+                                <div className="p-12 text-center text-slate-400 flex items-center justify-center gap-3">
+                                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                                    Loading members...
+                                </div>
+                            ) : attendanceList.length === 0 ? (
+                                <div className="p-12 text-center text-slate-400">No members found for this meeting.</div>
+                            ) : (
+                                attendanceList.map((record) => (
+                                    <div key={record.member_id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">
+                                                {record.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900 text-sm">{record.name}</p>
+                                                <p className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">{record.role}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                                            {['PRESENT', 'ABSENT', 'EXCUSED'].map((status) => (
+                                                <button
+                                                    key={status}
+                                                    onClick={() => handleUpdateAttendance(record.member_id, status)}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded-md text-[10px] font-bold transition-all",
+                                                        record.status === status
+                                                            ? status === 'PRESENT' ? "bg-emerald-500 text-white shadow-sm" :
+                                                                status === 'ABSENT' ? "bg-red-500 text-white shadow-sm" :
+                                                                    "bg-amber-500 text-white shadow-sm"
+                                                            : "text-slate-500 hover:text-slate-700"
+                                                    )}
+                                                >
+                                                    {status === 'PRESENT' ? 'Present' : status === 'ABSENT' ? 'Absent' : 'Excused'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setIsAttendanceModalOpen(false)}
+                                className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm"
+                            >
+                                Done
+                            </button>
+                        </div>
                     </Card>
                 </div>
             )}

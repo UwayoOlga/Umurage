@@ -68,6 +68,19 @@ class LoanService {
         }
         return response.json();
     }
+
+    async repayLoan(loanId: string, data: { amount: number; paymentMethod: string; notes?: string }) {
+        const response = await fetch(`${API_URL}/loans/${loanId}/repay`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to record repayment');
+        }
+        return response.json();
+    }
 }
 
 export const loanService = new LoanService();
