@@ -49,7 +49,7 @@ export const createSaving = async (req: AuthRequest, res: Response) => {
         }
 
         // 1. Verify membership
-        const member = db.prepare('SELECT id, group_id FROM members WHERE user_id = ? AND group_id = ? AND status = "active"')
+        const member = db.prepare("SELECT id, group_id FROM members WHERE user_id = ? AND group_id = ? AND status = 'active'")
             .get(userId, groupId) as any;
 
         if (!member) {

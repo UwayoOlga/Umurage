@@ -6,7 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 export const createGroup = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user!.id;
-        const { name, rcaNumber, description, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId } = req.body;
+        const { name, rcaNumber, description, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId, penaltyAmount = 500 } = req.body;
 
         if (!name || !rcaNumber || !contributionAmount || !contributionFrequency || !modelType) {
             throw new AppError('Name, RCA Number, contribution amount, frequency, and model type are required', 400);
@@ -21,11 +21,11 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
         // 1. Create the group
         const executeTransaction = db.transaction(() => {
             const groupStmt = db.prepare(`
-                INSERT INTO groups (name, rca_number, description, admin_id, contribution_amount, contribution_frequency, model_type, sacco_account_number, sacco_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO groups (name, rca_number, description, admin_id, contribution_amount, contribution_frequency, model_type, sacco_account_number, sacco_id, penalty_amount)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
             `);
-            const { id: groupId } = groupStmt.get(name, rcaNumber, description || '', userId, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId) as any;
+            const { id: groupId } = groupStmt.get(name, rcaNumber, description || '', userId, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId, penaltyAmount) as any;
 
             // 2. Add creator as the first member (admin role)
             const memberStmt = db.prepare(`
@@ -157,5 +157,84 @@ export const joinGroup = async (req: AuthRequest, res: Response) => {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error joining community.' });
+    }
+};
+
+export const getGroupFinancialSummary = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.id;
+
+        // Verify membership
+        const membership = db.prepare('SELECT id FROM members WHERE group_id = ? AND user_id = ?').get(id, userId);
+        if (!membership) {
+            throw new AppError('Access denied.', 403);
+        }
+
+        const summary: any = {};
+
+        // 1. Total Contributions
+        const contributions = db.prepare(`
+            SELECT SUM(amount) as total FROM transactions 
+            WHERE group_id = ? AND type = 'contribution' AND status = 'completed'
+        `).get(id) as any;
+        summary.totalContributions = contributions.total || 0;
+
+        // 2. Total Loans Disbursed
+        const loans = db.prepare(`
+            SELECT SUM(amount) as total FROM transactions 
+            WHERE group_id = ? AND type = 'loan_disbursement' AND status = 'completed'
+        `).get(id) as any;
+        summary.totalLoansDisbursed = loans.total || 0;
+
+        // 3. Total Loan Repayments
+        const repayments = db.prepare(`
+            SELECT SUM(amount) as total FROM transactions 
+            WHERE group_id = ? AND type = 'loan_repayment' AND status = 'completed'
+        `).get(id) as any;
+        summary.totalLoanRepayments = repayments.total || 0;
+
+        // 4. Total Penalties
+        const penalties = db.prepare(`
+            SELECT SUM(amount) as total FROM transactions 
+            WHERE group_id = ? AND type = 'penalty' AND status = 'completed'
+        `).get(id) as any;
+        summary.totalPenalties = penalties.total || 0;
+
+        // 5. Active Members
+        const members = db.prepare(`
+            SELECT COUNT(*) as count FROM members 
+            WHERE group_id = ? AND status = 'active'
+        `).get(id) as any;
+        summary.activeMemberCount = members.count || 0;
+
+        // 6. Current Bank/Cash Balance (simplified)
+        // Group Balance = Contributions + Repayments + Penalties - Disbursements
+        summary.currentBalance = summary.totalContributions + summary.totalLoanRepayments + summary.totalPenalties - summary.totalLoansDisbursed;
+
+        // 7. My Financials
+        const myFinancials = db.prepare(`
+            SELECT 
+                (SELECT SUM(amount) FROM savings WHERE member_id = m.id AND type = 'regular') as my_savings,
+                (SELECT SUM(amount) FROM transactions WHERE from_member_id = m.id AND type = 'penalty') as my_penalties,
+                (SELECT COUNT(*) FROM loans WHERE member_id = m.id AND status NOT IN ('repaid', 'rejected')) as my_active_loans
+            FROM members m
+            WHERE m.id = ?
+        `).get((membership as any).id) as any;
+
+        summary.myStats = {
+            savings: myFinancials.my_savings || 0,
+            penalties: myFinancials.my_penalties || 0,
+            activeLoans: myFinancials.my_active_loans || 0
+        };
+
+        res.status(200).json({
+            success: true,
+            data: summary
+        });
+    } catch (error) {
+        if (error instanceof AppError) return res.status(error.statusCode).json({ success: false, message: error.message });
+        console.error('getGroupFinancialSummary error:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching group summary' });
     }
 };

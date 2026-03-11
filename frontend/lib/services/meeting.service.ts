@@ -68,6 +68,18 @@ class MeetingService {
         }
         return response.json();
     }
+
+    async completeMeeting(meetingId: string) {
+        const response = await fetch(`${API_URL}/meetings/${meetingId}/complete`, {
+            method: 'PUT',
+            headers: this.getAuthHeaders(),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to complete meeting');
+        }
+        return response.json();
+    }
 }
 
 export const meetingService = new MeetingService();

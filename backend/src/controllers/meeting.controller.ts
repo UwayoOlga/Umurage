@@ -19,7 +19,7 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response) => {
         const result = stmt.run(group_id, scheduled_for, async_cutoff_time, location);
 
         // Pre-populate attendance list with all current group members as 'PRESENT'
-        const members = db.prepare('SELECT id FROM members WHERE group_id = ? AND status = "active"').all(group_id);
+        const members = db.prepare("SELECT id FROM members WHERE group_id = ? AND status = 'active'").all(group_id);
         const meetingId = db.prepare('SELECT id FROM meetings WHERE rowid = ?').get(result.lastInsertRowid);
 
         const attendanceStmt = db.prepare('INSERT INTO attendance (meeting_id, member_id, status) VALUES (?, ?, "PRESENT")');
@@ -92,3 +92,112 @@ export const startMeeting = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const getMeetingAttendance = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Verify meeting exists
+        const meeting: any = db.prepare('SELECT group_id FROM meetings WHERE id = ?').get(id);
+        if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found.' });
+
+        // Verify requester is member of group
+        const membership = db.prepare('SELECT id FROM members WHERE group_id = ? AND user_id = ?').get(meeting.group_id, req.user!.id);
+        if (!membership) return res.status(403).json({ success: false, message: 'Access denied.' });
+
+        const attendance = db.prepare(`
+            SELECT a.status, m.id as member_id, u.name, u.phone, m.role
+            FROM attendance a
+            JOIN members m ON a.member_id = m.id
+            JOIN users u ON m.user_id = u.id
+            WHERE a.meeting_id = ?
+            ORDER BY u.name ASC
+        `).all(id);
+
+        res.status(200).json({ success: true, data: attendance });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateAttendance = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params; // meeting_id
+        const { member_id, status } = req.body;
+
+        if (!['PRESENT', 'ABSENT', 'EXCUSED'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status.' });
+        }
+
+        // Verify meeting exists and get group_id
+        const meeting: any = db.prepare('SELECT group_id FROM meetings WHERE id = ?').get(id);
+        if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found.' });
+
+        // Ensure user is a leader of the group
+        const leaderCheck = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(meeting.group_id, req.user!.id);
+        if (!leaderCheck || !['admin', 'secretary', 'treasurer'].includes((leaderCheck as any).role)) {
+            return res.status(403).json({ success: false, message: 'Only group leaders can update attendance.' });
+        }
+
+        const result = db.prepare('UPDATE attendance SET status = ? WHERE meeting_id = ? AND member_id = ?').run(status, id, member_id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ success: false, message: 'Attendance record not found for this member.' });
+        }
+
+        res.status(200).json({ success: true, message: 'Attendance updated.' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const completeMeeting = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const meeting: any = db.prepare('SELECT * FROM meetings WHERE id = ?').get(id);
+        if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found.' });
+
+        const group: any = db.prepare('SELECT penalty_amount FROM groups WHERE id = ?').get(meeting.group_id);
+
+        const leaderCheck = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(meeting.group_id, req.user!.id);
+        if (!leaderCheck || !['admin', 'secretary', 'treasurer'].includes((leaderCheck as any).role)) {
+            return res.status(403).json({ success: false, message: 'Only group leaders can complete the meeting.' });
+        }
+
+        const transaction = db.transaction(() => {
+            // 1. Mark meeting as completed
+            db.prepare('UPDATE meetings SET status = "COMPLETED", updated_at = ? WHERE id = ?').run(new Date().toISOString(), id);
+
+            // 2. Identify absent members and apply penalties
+            const absents = db.prepare('SELECT member_id FROM attendance WHERE meeting_id = ? AND status = "ABSENT"').all(id);
+
+            if (absents.length > 0 && group.penalty_amount > 0) {
+                const penaltyStmt = db.prepare(`
+                    INSERT INTO transactions (group_id, type, amount, from_member_id, reference_id, reference_type, status, notes)
+                    VALUES (?, 'penalty', ?, ?, ?, 'meeting', 'completed', ?)
+                `);
+
+                for (const absent of absents as any[]) {
+                    penaltyStmt.run(
+                        meeting.group_id,
+                        group.penalty_amount,
+                        absent.member_id,
+                        id,
+                        'Automatic penalty for meeting absence'
+                    );
+                }
+            }
+        });
+
+        transaction();
+
+        res.status(200).json({
+            success: true,
+            message: 'Meeting completed successfully. Penalties applied to absent members.'
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+

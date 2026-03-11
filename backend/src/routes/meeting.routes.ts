@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scheduleMeeting, getUserMeetings, startMeeting } from '../controllers/meeting.controller';
+import { scheduleMeeting, getUserMeetings, startMeeting, getMeetingAttendance, updateAttendance, completeMeeting } from '../controllers/meeting.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
@@ -9,7 +9,8 @@ router.use(authenticate); // Ensure all routes are accessible by authenticated u
 router.post('/schedule', scheduleMeeting);
 router.get('/', getUserMeetings);
 router.put('/:id/start', startMeeting);
-// router.put('/:id/complete', completeMeeting); // Can be added later
-// router.put('/:id/attendance', updateAttendance); // Can be added later
+router.get('/:id/attendance', getMeetingAttendance);
+router.put('/:id/attendance', updateAttendance);
+router.put('/:id/complete', completeMeeting);
 
 export default router;

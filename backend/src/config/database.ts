@@ -160,6 +160,7 @@ try { db.exec(`ALTER TABLE users ADD COLUMN national_id TEXT UNIQUE;`); } catch 
 try { db.exec(`ALTER TABLE groups ADD COLUMN rca_number TEXT UNIQUE;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN description TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE members ADD COLUMN rotation_order INTEGER;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN penalty_amount REAL DEFAULT 500;`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

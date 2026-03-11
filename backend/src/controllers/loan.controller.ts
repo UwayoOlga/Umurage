@@ -8,7 +8,8 @@ export const getUserLoans = async (req: AuthRequest, res: Response) => {
         const userId = req.user!.id;
 
         const query = `
-            SELECT l.*, g.name as group_name
+            SELECT l.*, g.name as group_name,
+            (SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE reference_id = l.id AND type = 'loan_repayment' AND status = 'completed') as total_paid
             FROM loans l
             JOIN members m ON l.member_id = m.id
             JOIN groups g ON m.group_id = g.id
@@ -77,7 +78,7 @@ export const approveLoan = async (req: AuthRequest, res: Response) => {
 
         // Only treasurer or admin of that group can approve
         const leaderCheck = db.prepare(
-            'SELECT role FROM members WHERE group_id = ? AND user_id = ? AND status = "active"'
+            "SELECT role FROM members WHERE group_id = ? AND user_id = ? AND status = 'active'"
         ).get(loan.group_id, userId) as any;
 
         if (!leaderCheck || !['admin', 'treasurer'].includes(leaderCheck.role)) {
@@ -122,7 +123,7 @@ export const rejectLoan = async (req: AuthRequest, res: Response) => {
         if (loan.status !== 'pending') throw new AppError(`Loan is already ${loan.status}`, 400);
 
         const leaderCheck = db.prepare(
-            'SELECT role FROM members WHERE group_id = ? AND user_id = ? AND status = "active"'
+            "SELECT role FROM members WHERE group_id = ? AND user_id = ? AND status = 'active'"
         ).get(loan.group_id, userId) as any;
 
         if (!leaderCheck || !['admin', 'treasurer'].includes(leaderCheck.role)) {
@@ -151,7 +152,7 @@ export const applyForLoan = async (req: AuthRequest, res: Response) => {
         }
 
         // 1. Verify membership
-        const member = db.prepare('SELECT id FROM members WHERE user_id = ? AND group_id = ? AND status = "active"')
+        const member = db.prepare("SELECT id FROM members WHERE user_id = ? AND group_id = ? AND status = 'active'")
             .get(userId, groupId) as any;
 
         if (!member) {
@@ -182,5 +183,76 @@ export const applyForLoan = async (req: AuthRequest, res: Response) => {
         }
         console.error('applyForLoan error:', error);
         res.status(500).json({ success: false, message: 'Server error processing loan application' });
+    }
+};
+
+export const repayLoan = async (req: AuthRequest, res: Response) => {
+    try {
+        const { loanId } = req.params;
+        const { amount, paymentMethod, notes } = req.body;
+        const userId = req.user!.id;
+
+        if (!amount || amount <= 0) {
+            throw new AppError('A positive repayment amount is required', 400);
+        }
+
+        // 1. Get loan and verify
+        const loan = db.prepare(`
+            SELECT l.*, m.group_id, m.id as member_id
+            FROM loans l JOIN members m ON l.member_id = m.id
+            WHERE l.id = ?
+        `).get(loanId) as any;
+
+        if (!loan) throw new AppError('Loan not found', 404);
+
+        // Members can only repay their own loans, unless user is leader (Chairperson/Treasurer)
+        const membership = db.prepare('SELECT id, role FROM members WHERE group_id = ? AND user_id = ?').get(loan.group_id, userId) as any;
+        if (!membership) throw new AppError('Access denied', 403);
+
+        const isOwner = loan.member_id === membership.id;
+        const isLeader = ['admin', 'treasurer'].includes(membership.role);
+
+        if (!isOwner && !isLeader) {
+            throw new AppError('You do not have permission to record a repayment for this loan.', 403);
+        }
+
+        if (!['approved', 'disbursed', 'defaulted'].includes(loan.status)) {
+            throw new AppError(`Cannot repay a loan with status ${loan.status}`, 400);
+        }
+
+        // 2. Perform repayment in a transaction
+        db.transaction(() => {
+            // Create transaction record
+            db.prepare(`
+                INSERT INTO transactions (group_id, type, amount, from_member_id, reference_id, reference_type, status, notes)
+                VALUES (?, 'loan_repayment', ?, ?, ?, 'loan', 'completed', ?)
+            `).run(loan.group_id, amount, loan.member_id, loanId, notes || `Loan repayment via ${paymentMethod || 'momo'}`);
+
+            // Calculate current total paid
+            const totalPaidResult = db.prepare(`
+                SELECT SUM(amount) as total
+                FROM transactions
+                WHERE reference_id = ? AND type = 'loan_repayment' AND status = 'completed'
+            `).get(loanId) as any;
+
+            const totalPaid = totalPaidResult?.total || 0;
+            const totalToPay = loan.amount + (loan.amount * (loan.interest_rate / 100));
+
+            // If fully paid, update loan status
+            if (totalPaid >= totalToPay) {
+                db.prepare(`UPDATE loans SET status = 'repaid', updated_at = ? WHERE id = ?`)
+                    .run(new Date().toISOString(), loanId);
+            } else if (loan.status === 'approved') {
+                // Mark as disbursed if repayments start
+                db.prepare(`UPDATE loans SET status = 'disbursed', updated_at = ? WHERE id = ?`)
+                    .run(new Date().toISOString(), loanId);
+            }
+        })();
+
+        res.status(200).json({ success: true, message: 'Repayment recorded successfully' });
+    } catch (error) {
+        if (error instanceof AppError) return res.status(error.statusCode).json({ success: false, message: error.message });
+        console.error('repayLoan error:', error);
+        res.status(500).json({ success: false, message: 'Server error recording repayment' });
     }
 };

@@ -77,6 +77,19 @@ class GroupService {
 
         return response.json();
     }
+
+    async getGroupSummary(id: string) {
+        const response = await fetch(`${API_URL}/groups/${id}/summary`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch group summary');
+        }
+
+        return response.json();
+    }
 }
 
 export const groupService = new GroupService();

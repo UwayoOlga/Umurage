@@ -87,19 +87,30 @@ export const getRotationInfo = async (req: any, res: any) => {
             return res.status(200).json({ data: null });
         }
 
-        // Get the queue
-        const members = db.prepare(`
-            SELECT m.id as member_id, m.rotation_order, u.name, u.id as user_id 
-            FROM members m
-            JOIN users u ON m.user_id = u.id
-            WHERE m.group_id = ? AND m.rotation_order IS NOT NULL AND m.status = 'active'
-            ORDER BY m.rotation_order ASC
-        `).all(groupId) as any[];
+        // Calculate real-time collection progress
+        // Total expected = amount_per_member * number of active members
+        const activeMembersCount = db.prepare("SELECT count(*) as count FROM members WHERE group_id = ? AND status = 'active'").get(groupId) as any;
+        const expectedTotal = rotation.amount_per_member * activeMembersCount.count;
+
+        // Total collected = sum of savings for this group since the last rotation update (period start)
+        const collectedData = db.prepare(`
+            SELECT SUM(s.amount) as total
+            FROM savings s
+            JOIN members m ON s.member_id = m.id
+            WHERE m.group_id = ? AND s.created_at >= ? AND s.type = 'regular'
+        `).get(groupId, rotation.updated_at) as any;
+
+        const totalCollected = collectedData?.total || 0;
 
         res.status(200).json({
             data: {
                 ...rotation,
-                queue: members
+                queue: members,
+                collection: {
+                    totalCollected,
+                    expectedTotal,
+                    progressPercentage: expectedTotal > 0 ? Math.min(100, Math.round((totalCollected / expectedTotal) * 100)) : 0
+                }
             }
         });
     } catch (error) {
@@ -137,7 +148,7 @@ export const disbursePayout = async (req: any, res: any) => {
             db.prepare(`
                 INSERT INTO transactions (group_id, type, amount, to_member_id, reference_id, reference_type, status, notes)
                 VALUES (?, 'share_out', ?, ?, ?, 'rotation', 'completed', ?)
-            `).run(groupId, rotation.amount_per_member * (db.prepare('SELECT count(*) as count FROM members WHERE group_id = ? AND status = "active"').get(groupId) as any).count, rotation.current_turn_member_id, rotation.id, 'Monthly Ikimina payout disbursed');
+            `).run(groupId, rotation.amount_per_member * (db.prepare("SELECT count(*) as count FROM members WHERE group_id = ? AND status = 'active'").get(groupId) as any).count, rotation.current_turn_member_id, rotation.id, 'Monthly Ikimina payout disbursed');
 
             if (nextMember) {
                 // Advance turn

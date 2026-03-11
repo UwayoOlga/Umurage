@@ -126,6 +126,20 @@ export default function MeetingsPage() {
         }
     };
 
+    const handleCompleteMeeting = async () => {
+        if (!selectedMeeting) return;
+        if (!confirm("Are you sure you want to complete this meeting? This will automatically apply penalties to any absent members.")) return;
+
+        try {
+            await meetingService.completeMeeting(selectedMeeting.id);
+            setIsAttendanceModalOpen(false);
+            fetchData();
+        } catch (error: any) {
+            alert(error.message || "Failed to complete meeting.");
+        }
+    };
+
+
     const groupMap = new Map();
     groups.forEach(g => groupMap.set(g.id, g.name));
 
@@ -397,13 +411,26 @@ export default function MeetingsPage() {
                             )}
                         </div>
 
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                            <button
-                                onClick={() => setIsAttendanceModalOpen(false)}
-                                className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm"
-                            >
-                                Done
-                            </button>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                            <p className="text-[10px] text-slate-400 font-medium">
+                                Changes are saved automatically as you click.
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsAttendanceModalOpen(false)}
+                                    className="px-6 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-xl font-bold text-sm transition-colors"
+                                >
+                                    Close
+                                </button>
+                                {selectedMeeting?.status === 'ACTIVE' && (
+                                    <button
+                                        onClick={handleCompleteMeeting}
+                                        className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-colors"
+                                    >
+                                        Complete Meeting & Apply Penalties
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </Card>
                 </div>

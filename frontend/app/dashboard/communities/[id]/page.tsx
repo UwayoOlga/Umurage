@@ -10,8 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { dashboardService } from '@/lib/services/dashboard.service';
 import { rotationService } from '@/lib/services/rotation.service';
+import { groupService } from '@/lib/services/group.service';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { TrendingUp, PieChart, Activity } from 'lucide-react';
 
 const ROLE_META: Record<string, { label: string; icon: any; color: string; bg: string; border: string }> = {
     admin: { label: 'Chairperson', icon: Crown, color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-200' },
@@ -26,10 +28,11 @@ export default function CommunityDetailsPage() {
     const { user, logout } = useAuth();
     const groupId = params.id as string;
 
-    const [activeTab, setActiveTab] = useState<'rotation' | 'members'>('rotation');
+    const [activeTab, setActiveTab] = useState<'rotation' | 'members' | 'insights'>('rotation');
     const [members, setMembers] = useState<any[]>([]);
     const [myRole, setMyRole] = useState<string>('member');
     const [rotation, setRotation] = useState<any>(null);
+    const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     // Start Rotation modal
@@ -48,9 +51,10 @@ export default function CommunityDetailsPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [membersRes, rotRes] = await Promise.allSettled([
+            const [membersRes, rotRes, summaryRes] = await Promise.allSettled([
                 dashboardService.getGroupMemberList(groupId),
                 rotationService.getRotationInfo(groupId),
+                groupService.getGroupSummary(groupId),
             ]);
 
             if (membersRes.status === 'fulfilled') {
@@ -59,6 +63,9 @@ export default function CommunityDetailsPage() {
             }
             if (rotRes.status === 'fulfilled') {
                 setRotation(rotRes.value.data);
+            }
+            if (summaryRes.status === 'fulfilled') {
+                setSummary(summaryRes.value.data);
             }
         } catch (error: any) {
             if (error.message?.toLowerCase().includes('token')) logout();
@@ -167,16 +174,18 @@ export default function CommunityDetailsPage() {
 
             {/* Tabs */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {(['rotation', 'members'] as const).map(tab => (
+                {(['rotation', 'members', 'insights'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={cn(
-                            'px-5 py-2 rounded-lg text-sm font-bold capitalize transition-all',
+                            'px-5 py-2 rounded-lg text-sm font-bold capitalize transition-all whitespace-nowrap',
                             activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
-                        {tab === 'rotation' ? '🔄 Ikimina Rotation' : `👥 Members (${activeMembers.length})`}
+                        {tab === 'rotation' ? '🔄 Ikimina Rotation' :
+                            tab === 'members' ? `👥 Members (${activeMembers.length})` :
+                                '📊 Reports & Insights'}
                     </button>
                 ))}
             </div>
@@ -294,7 +303,123 @@ export default function CommunityDetailsPage() {
                 )
             )}
 
-            {/* ────────────── MEMBERS TAB ────────────── */}
+            {activeTab === 'insights' && (
+                <div className="space-y-6">
+                    {/* Financial health summary cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Card className="p-4 bg-white border border-slate-100 flex items-start gap-4">
+                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                                <Wallet className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Group Balance</p>
+                                <p className="text-xl font-black text-slate-900">{formatCurrency(summary?.currentBalance || 0)}</p>
+                            </div>
+                        </Card>
+                        <Card className="p-4 bg-white border border-slate-100 flex items-start gap-4">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <PiggyBank className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Contributions</p>
+                                <p className="text-xl font-black text-slate-900">{formatCurrency(summary?.totalContributions || 0)}</p>
+                            </div>
+                        </Card>
+                        <Card className="p-4 bg-white border border-slate-100 flex items-start gap-4">
+                            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                                <TrendingUp className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Active Loans</p>
+                                <p className="text-xl font-black text-slate-900">{formatCurrency(summary?.totalLoansDisbursed - summary?.totalLoanRepayments || 0)}</p>
+                            </div>
+                        </Card>
+                        <Card className="p-4 bg-white border border-slate-100 flex items-start gap-4">
+                            <div className="p-2 bg-red-50 text-red-600 rounded-lg">
+                                <Activity className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Penalties</p>
+                                <p className="text-xl font-black text-slate-900">{formatCurrency(summary?.totalPenalties || 0)}</p>
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Member Specific Insights */}
+                        <Card className="p-6 bg-slate-900 text-white flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold opacity-60 flex items-center gap-2">
+                                    <User className="w-4 h-4" />
+                                    Your Personal Stats
+                                </h3>
+                                <div className="mt-8 space-y-6">
+                                    <div>
+                                        <p className="text-3xl font-black mb-1">{formatCurrency(summary?.myStats?.savings || 0)}</p>
+                                        <p className="text-xs text-slate-400">Your total savings in this group</p>
+                                    </div>
+                                    <div className="pt-6 border-t border-white/10 flex justify-between">
+                                        <div>
+                                            <p className="text-lg font-bold">{summary?.myStats?.activeLoans || 0}</p>
+                                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Active Loans</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-bold text-red-400">{formatCurrency(summary?.myStats?.penalties || 0)}</p>
+                                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Unpaid Penalties</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-8 text-[10px] text-slate-500 leading-relaxed">
+                                This feedback is updated in real-time based on your meeting attendance and contribution habits.
+                            </div>
+                        </Card>
+
+                        {/* Visual Breakdown */}
+                        <Card className="lg:col-span-2 p-6 overflow-hidden flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="font-bold text-slate-800">Community Financial DNA</h3>
+                                    <p className="text-xs text-slate-500">How resources are distributed within your group</p>
+                                </div>
+                                <PieChart className="w-5 h-5 text-slate-400" />
+                            </div>
+
+                            <div className="flex-1 flex flex-col justify-center space-y-8">
+                                {[
+                                    { label: 'Liquidity (Cash on hand)', val: summary?.currentBalance || 0, color: 'bg-emerald-500' },
+                                    { label: 'Outsourced Loans', val: (summary?.totalLoansDisbursed - summary?.totalLoanRepayments) || 0, color: 'bg-blue-500' },
+                                    { label: 'Penalties Received', val: summary?.totalPenalties || 0, color: 'bg-orange-500' },
+                                ].map((item, idx) => {
+                                    const total = (summary?.currentBalance || 0) + (summary?.totalLoansDisbursed - summary?.totalLoanRepayments || 0) + (summary?.totalPenalties || 0);
+                                    const percentage = total === 0 ? 0 : Math.round((item.val / total) * 100);
+                                    return (
+                                        <div key={idx} className="space-y-2">
+                                            <div className="flex justify-between items-center text-xs font-bold">
+                                                <span className="text-slate-600">{item.label}</span>
+                                                <span className="text-slate-900">{percentage}%</span>
+                                            </div>
+                                            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                                                <div
+                                                    className={cn("h-full transition-all duration-1000", item.color)}
+                                                    style={{ width: `${percentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-8 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3">
+                                <Shield className="w-5 h-5 text-blue-600" />
+                                <p className="text-[10px] text-blue-800 font-medium">
+                                    Official RCA Audit data. Secure and transparent ledger.
+                                </p>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            )}
             {activeTab === 'members' && (
                 <Card className="overflow-hidden">
                     <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
