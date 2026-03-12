@@ -12,9 +12,11 @@ import { dashboardService } from "@/lib/services/dashboard.service";
 import { loanService } from "@/lib/services/loan.service";
 import { groupService } from "@/lib/services/group.service";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function LoansPage() {
     const { logout } = useAuth();
+    const { t } = useLanguage();
     const [loans, setLoans] = useState<any[]>([]);
     const [pendingLoans, setPendingLoans] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
@@ -156,11 +158,11 @@ export default function LoansPage() {
 
     const getLoanStatusMeta = (status: string) => {
         switch (status) {
-            case 'approved': return { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', bar: 'bg-emerald-500' };
-            case 'disbursed': return { label: 'Disbursed', cls: 'bg-blue-50 text-blue-700 border-blue-200', bar: 'bg-blue-500' };
-            case 'pending': return { label: 'Pending Review', cls: 'bg-amber-50 text-amber-700 border-amber-200', bar: 'bg-amber-400' };
-            case 'rejected': return { label: 'Rejected', cls: 'bg-red-50 text-red-700 border-red-200', bar: 'bg-red-400' };
-            case 'repaid': return { label: 'Repaid', cls: 'bg-slate-50 text-slate-600 border-slate-200', bar: 'bg-slate-300' };
+            case 'approved': return { label: t('loans.status.approved'), cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', bar: 'bg-emerald-500' };
+            case 'disbursed': return { label: t('loans.status.disbursed'), cls: 'bg-blue-50 text-blue-700 border-blue-200', bar: 'bg-blue-500' };
+            case 'pending': return { label: t('loans.status.pending'), cls: 'bg-amber-50 text-amber-700 border-amber-200', bar: 'bg-amber-400' };
+            case 'rejected': return { label: t('loans.status.rejected'), cls: 'bg-red-50 text-red-700 border-red-200', bar: 'bg-red-400' };
+            case 'repaid': return { label: t('loans.status.repaid'), cls: 'bg-slate-50 text-slate-600 border-slate-200', bar: 'bg-slate-300' };
             default: return { label: status, cls: 'bg-slate-50 text-slate-600 border-slate-200', bar: 'bg-slate-300' };
         }
     };
@@ -176,35 +178,35 @@ export default function LoansPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                         <Banknote className="w-6 h-6 text-blue-600" />
-                        Loans Management
+                        {t('loans.title')}
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Apply for loans and manage group borrowing.</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('loans.subtitle')}</p>
                 </div>
                 <button onClick={() => setShowModal(true)}
                     className="btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700 shadow-blue-200">
                     <Plus className="w-4 h-4" />
-                    <span>Request Loan</span>
+                    <span>{t('loans.req_loan')}</span>
                 </button>
             </div>
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
-                    label="Active Loans Balance"
+                    label={t('loans.active_balance')}
                     value={loading ? "..." : formatCurrency(summary?.activeLoans || 0)}
                     icon={Banknote}
                     color="text-blue-600"
-                    trend={loading ? undefined : `${activeLoans.length} active loans`}
+                    trend={loading ? undefined : `${activeLoans.length} ${t('loans.active_loans').toLowerCase()}`}
                 />
                 <StatCard
-                    label="Pending Applications"
+                    label={t('loans.pending')}
                     value={loading ? "..." : `${loans.filter(l => l.status === 'pending').length}`}
                     icon={Clock}
                     color="text-amber-600"
                     trend="Awaiting Treasurer review"
                 />
                 <StatCard
-                    label="AI Credit Score"
+                    label={t('loans.credit_score')}
                     value={loans.length > 0 ? `${loans[0]?.ai_score || '--'}%` : '--'}
                     icon={TrendingUp}
                     color="text-emerald-600"
@@ -218,14 +220,14 @@ export default function LoansPage() {
                 <button onClick={() => setActiveTab('my_loans')}
                     className={cn('px-5 py-2 rounded-lg text-sm font-bold transition-all',
                         activeTab === 'my_loans' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-                    💰 My Loans ({loans.length})
+                    💰 {t('loans.my_loans')} ({loans.length})
                 </button>
                 {isLeader && (
                     <button onClick={() => setActiveTab('pending_approval')}
                         className={cn('px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2',
                             activeTab === 'pending_approval' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
                         <Shield className="w-4 h-4" />
-                        Pending Approval
+                        {t('loans.pending')}
                         {pendingLoans.length > 0 && (
                             <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {pendingLoans.length}
@@ -240,7 +242,7 @@ export default function LoansPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-6">
                         <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                            Active Loans
+                            {t('loans.active_loans')}
                             <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">{activeLoans.length}</span>
                         </h2>
                         <div className="space-y-4">

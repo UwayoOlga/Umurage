@@ -42,6 +42,9 @@ Umurage digitizes traditional rotating savings groups with secure contributions,
 ### Transactions
 ![Transactions Page](Documentation/screenshots/transactions%20page.jpeg)
 
+### Join Community
+![Join Community](Documentation/screenshots/Join_Communiy.png)
+
 ---
 
 ## Getting Started

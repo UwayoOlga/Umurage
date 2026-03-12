@@ -11,7 +11,9 @@ import { Modal } from '@/components/ui/modal';
 import { dashboardService } from '@/lib/services/dashboard.service';
 import { rotationService } from '@/lib/services/rotation.service';
 import { groupService } from '@/lib/services/group.service';
+import { savingService } from '@/lib/services/saving.service';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { cn } from '@/lib/utils';
 import { TrendingUp, PieChart, Activity } from 'lucide-react';
 
@@ -26,6 +28,7 @@ export default function CommunityDetailsPage() {
     const params = useParams();
     const router = useRouter();
     const { user, logout } = useAuth();
+    const { t } = useLanguage();
     const groupId = params.id as string;
 
     const [activeTab, setActiveTab] = useState<'rotation' | 'members' | 'insights'>('rotation');
@@ -45,6 +48,14 @@ export default function CommunityDetailsPage() {
     const [promotingMemberId, setPromotingMemberId] = useState<string | null>(null);
     const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
     const [disbursing, setDisbursing] = useState(false);
+
+    // Contribution state
+    const [showContributeModal, setShowContributeModal] = useState(false);
+    const [contribAmount, setContribAmount] = useState('');
+    const [contribMethod, setContribMethod] = useState('momo');
+    const [contribType, setContribType] = useState('regular');
+    const [contribNotes, setContribNotes] = useState('');
+    const [contribSubmitting, setContribSubmitting] = useState(false);
 
     useEffect(() => { fetchData(); }, [groupId]);
 
@@ -119,6 +130,29 @@ export default function CommunityDetailsPage() {
         }
     };
 
+    const handleContribute = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setContribSubmitting(true);
+        try {
+            await savingService.recordContribution({
+                groupId,
+                amount: parseFloat(contribAmount),
+                paymentMethod: contribMethod,
+                notes: contribNotes,
+                type: contribType
+            });
+            setShowContributeModal(false);
+            setContribAmount('');
+            setContribNotes('');
+            fetchData(); // Refresh to see progress move!
+        } catch (error: any) {
+            alert(error?.message || 'Failed to record contribution');
+        } finally {
+            setContribSubmitting(false);
+        }
+    };
+
+
     const formatCurrency = (amt: number) =>
         new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', minimumFractionDigits: 0 })
             .format(amt).replace('RWF', '').trim() + ' RWF';
@@ -131,7 +165,7 @@ export default function CommunityDetailsPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
             <div className="flex items-center gap-3 text-slate-500">
                 <Loader2 className="w-6 h-6 animate-spin" />
-                <span className="font-medium">Loading community...</span>
+                <span className="font-medium">{t('common.loading')}</span>
             </div>
         </div>
     );
@@ -143,23 +177,23 @@ export default function CommunityDetailsPage() {
                 onClick={() => router.push('/dashboard/communities')}
                 className="flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm font-medium transition-colors"
             >
-                <ArrowLeft className="w-4 h-4" /> Back to Communities
+                <ArrowLeft className="w-4 h-4" /> {t('common.back')}
             </button>
 
             <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Community Management</h1>
+                    <h1 className="text-3xl font-bold text-slate-900">{t('communities.title')}</h1>
                     <div className="flex items-center gap-3 mt-2">
                         {(() => {
                             const meta = ROLE_META[myRole];
                             const Icon = meta.icon;
                             return (
                                 <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border', meta.color, meta.bg, meta.border)}>
-                                    <Icon className="w-3.5 h-3.5" /> Your Role: {meta.label}
+                                    <Icon className="w-3.5 h-3.5" /> {meta.label}
                                 </span>
                             );
                         })()}
-                        <span className="text-sm text-slate-500">{activeMembers.length} active members</span>
+                        <span className="text-sm text-slate-500">{activeMembers.length} {t('communities.members')}</span>
                     </div>
                 </div>
                 {isChairperson && !rotation && activeMembers.length > 1 && (
@@ -167,7 +201,7 @@ export default function CommunityDetailsPage() {
                         onClick={() => setShowStartModal(true)}
                         className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-purple-600/20"
                     >
-                        <Play className="w-4 h-4" /> Start Rotation Cycle
+                        <Play className="w-4 h-4" /> {t('communities.start_rotation')}
                     </button>
                 )}
             </div>
@@ -183,9 +217,9 @@ export default function CommunityDetailsPage() {
                             activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
-                        {tab === 'rotation' ? '🔄 Ikimina Rotation' :
-                            tab === 'members' ? `👥 Members (${activeMembers.length})` :
-                                '📊 Reports & Insights'}
+                        {tab === 'rotation' ? `🔄 ${t('communities.rotation')}` :
+                            tab === 'members' ? `👥 ${t('communities.members')} (${activeMembers.length})` :
+                                `📊 ${t('communities.insights')}`}
                     </button>
                 ))}
             </div>
@@ -205,18 +239,18 @@ export default function CommunityDetailsPage() {
                                         <div>
                                             <div className="inline-flex items-center space-x-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-6 backdrop-blur-sm">
                                                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                                                <span>Active Ikimina Cycle</span>
+                                                <span>{t('communities.active_cycle')}</span>
                                             </div>
-                                            <p className="text-purple-200 font-medium mb-1">Current Payout Recipient</p>
+                                            <p className="text-purple-200 font-medium mb-1">{t('communities.current_payout')}</p>
                                             <p className="text-5xl font-black mb-6 tracking-tight">{rotation.current_member_name}</p>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 pt-6 border-t border-purple-500/30">
                                             <div>
-                                                <p className="text-purple-200 text-xs uppercase tracking-wider font-semibold mb-1">Total Pot</p>
+                                                <p className="text-purple-200 text-xs uppercase tracking-wider font-semibold mb-1">{t('communities.total_pot')}</p>
                                                 <p className="text-2xl font-bold">{formatCurrency((rotation.queue?.length || 0) * rotation.amount_per_member)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-purple-200 text-xs uppercase tracking-wider font-semibold mb-1">Payout Date</p>
+                                                <p className="text-purple-200 text-xs uppercase tracking-wider font-semibold mb-1">{t('communities.payout_date')}</p>
                                                 <p className="text-2xl font-bold">{new Date(rotation.payout_date).toLocaleDateString()}</p>
                                             </div>
                                         </div>
@@ -226,7 +260,7 @@ export default function CommunityDetailsPage() {
                             <div>
                                 <Card className="p-6 h-full flex flex-col">
                                     <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
-                                        <Clock className="w-5 h-5 text-emerald-500" /> Collection Progress
+                                        <Clock className="w-5 h-5 text-emerald-500" /> {t('communities.progress')}
                                     </h3>
                                     <div className="flex-1 flex flex-col justify-center">
                                         <div className="text-center mb-6">
@@ -243,15 +277,29 @@ export default function CommunityDetailsPage() {
                                             </span>
                                         </p>
                                     </div>
-                                    {isLeader && (
+                                    <div className="grid grid-cols-2 gap-3 mt-6">
+                                        {isLeader && (
+                                            <button
+                                                onClick={handleDisbursePayout}
+                                                disabled={disbursing}
+                                                className="py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-slate-900/20">
+                                                {disbursing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                {t('communities.disburse')}
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={handleDisbursePayout}
-                                            disabled={disbursing}
-                                            className="w-full mt-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                                            {disbursing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                            Disburse Pot
+                                            onClick={() => {
+                                                setContribAmount(rotation.amount_per_member.toString());
+                                                setShowContributeModal(true);
+                                            }}
+                                            className={cn(
+                                                "py-3 border-2 border-slate-900 text-slate-900 hover:bg-slate-50 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm",
+                                                !isLeader && "col-span-2"
+                                            )}>
+                                            <Plus className="w-4 h-4" />
+                                            {t('communities.contribute')}
                                         </button>
-                                    )}
+                                    </div>
                                 </Card>
                             </div>
                         </div>
@@ -259,8 +307,8 @@ export default function CommunityDetailsPage() {
                         {/* Rotation Queue */}
                         <Card className="overflow-hidden">
                             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between">
-                                <h3 className="font-bold text-slate-900">Rotation Queue</h3>
-                                <span className="text-xs font-semibold px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full">{rotation.queue?.length || 0} Members</span>
+                                <h3 className="font-bold text-slate-900">{t('communities.queue')}</h3>
+                                <span className="text-xs font-semibold px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full">{rotation.queue?.length || 0} {t('communities.members')}</span>
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {rotation.queue?.map((m: any) => {
@@ -370,6 +418,18 @@ export default function CommunityDetailsPage() {
                                     </div>
                                 </div>
                             </div>
+                            {summary?.myStats?.penalties > 0 && (
+                                <button
+                                    onClick={() => {
+                                        setContribAmount(summary.myStats.penalties.toString());
+                                        setContribType('penalty');
+                                        setContribNotes('Settling unpaid meeting fines');
+                                        setShowContributeModal(true);
+                                    }}
+                                    className="mt-6 w-full py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-xl text-xs font-bold transition-all">
+                                    Pay Pending Fines
+                                </button>
+                            )}
                             <div className="mt-8 text-[10px] text-slate-500 leading-relaxed">
                                 This feedback is updated in real-time based on your meeting attendance and contribution habits.
                             </div>
@@ -562,6 +622,60 @@ export default function CommunityDetailsPage() {
                     </button>
                 </form>
             </Modal>
+
+            {/* CONTRIBUTION MODAL */}
+            <Modal isOpen={showContributeModal} onClose={() => !contribSubmitting && setShowContributeModal(false)} title={contribType === 'penalty' ? "Pay Meeting Fine" : "Make Ikimina Contribution"}>
+                <form onSubmit={handleContribute} className="space-y-4">
+                    <div className={cn("border p-4 rounded-xl flex items-center gap-3 mb-2",
+                        contribType === 'penalty' ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100")}>
+                        <div className={cn("p-2 text-white rounded-lg",
+                            contribType === 'penalty' ? "bg-red-500" : "bg-emerald-500")}>
+                            {contribType === 'penalty' ? <Activity className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                        </div>
+                        <div>
+                            <p className={cn("text-[10px] font-black uppercase tracking-widest",
+                                contribType === 'penalty' ? "text-red-600" : "text-emerald-600")}>
+                                {contribType === 'penalty' ? "Member Discipline" : "Current Payout Goal"}
+                            </p>
+                            <p className={cn("text-sm font-bold",
+                                contribType === 'penalty' ? "text-red-900" : "text-emerald-900")}>
+                                {contribType === 'penalty' ? "Clear your unpaid penalties" : `Contribution for ${rotation?.current_member_name}`}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Amount (RWF)</label>
+                        <input type="number" required value={contribAmount} onChange={e => setContribAmount(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Payment Method</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {['momo', 'cash', 'sacco'].map(method => (
+                                <button key={method} type="button" onClick={() => setContribMethod(method)}
+                                    className={cn("py-2.5 rounded-xl border font-bold capitalize text-xs tracking-wider transition-all",
+                                        contribMethod === method ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/10" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50")}>
+                                    {method}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Notes (Optional)</label>
+                        <textarea value={contribNotes} onChange={e => setContribNotes(e.target.value)} placeholder="e.g. Monthly contribution"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 min-h-[80px]" />
+                    </div>
+
+                    <button type="submit" disabled={contribSubmitting || !contribAmount}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 mt-4">
+                        {contribSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Recording...</> : 'Confirm Contribution'}
+                    </button>
+                </form>
+            </Modal>
         </div>
     );
 }
+

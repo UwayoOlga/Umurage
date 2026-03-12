@@ -14,24 +14,26 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
-
-const navItems = [
-    { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Communities", href: "/dashboard/communities", icon: Layers },
-    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
-    { label: "Savings", href: "/dashboard/savings", icon: PiggyBank },
-    { label: "Loans", href: "/dashboard/loans", icon: Banknote },
-];
-
-const adminNavItems = [
-    { label: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "Groups", href: "/dashboard/admin/groups", icon: Menu },
-];
+import { useLanguage } from "@/context/LanguageContext";
 
 export function MobileNav() {
     const pathname = usePathname();
     const { isAdmin } = useAuth();
+    const { t } = useLanguage();
+
+    const navItems = [
+        { label: t('common.dashboard'), href: "/dashboard", icon: LayoutDashboard },
+        { label: t('common.communities'), href: "/dashboard/communities", icon: Layers },
+        { label: t('common.meetings'), href: "/dashboard/meetings", icon: Calendar },
+        { label: t('common.savings'), href: "/dashboard/savings", icon: PiggyBank },
+        { label: t('common.loans'), href: "/dashboard/loans", icon: Banknote },
+    ];
+
+    const adminNavItems = [
+        { label: t('common.dashboard'), href: "/dashboard/admin", icon: LayoutDashboard },
+        { label: t('common.communities'), href: "/dashboard/admin/groups", icon: Layers },
+        { label: t('common.members'), href: "/dashboard/admin/users", icon: Users },
+    ];
 
     const items = isAdmin && isAdmin() ? adminNavItems : navItems;
 

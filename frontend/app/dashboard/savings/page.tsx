@@ -20,9 +20,11 @@ import { dashboardService } from "@/lib/services/dashboard.service";
 import { savingService } from "@/lib/services/saving.service";
 import { groupService } from "@/lib/services/group.service";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function SavingsPage() {
     const { logout } = useAuth();
+    const { t } = useLanguage();
     const [filter, setFilter] = useState("All");
     const [savingsData, setSavingsData] = useState<any>(null);
     const [summary, setSummary] = useState<any>(null);
@@ -115,9 +117,9 @@ export default function SavingsPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                         <PiggyBank className="w-6 h-6 text-emerald-600" />
-                        Group Savings
+                        {t('savings.title')}
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Track contributions and group wealth.</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('savings.subtitle')}</p>
                 </div>
                 <div className="flex gap-3">
                     <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-medium text-sm flex items-center gap-2">
@@ -129,7 +131,7 @@ export default function SavingsPage() {
                         className="btn-primary flex items-center gap-2"
                     >
                         <Plus className="w-4 h-4" />
-                        <span>Record Deposit</span>
+                        <span>{t('savings.record_deposit')}</span>
                     </button>
                 </div>
             </div>
@@ -137,21 +139,21 @@ export default function SavingsPage() {
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
-                    label="Total Group Savings"
+                    label={t('savings.total_group')}
                     value={loading ? "..." : formatCurrency(summary?.totalSavings || 0)}
                     icon={Wallet}
                     trend={loading ? undefined : "+0% this month"}
                     trendUp={true}
                 />
                 <StatCard
-                    label="My Contributions"
+                    label={t('savings.my_contributions')}
                     value={loading ? "..." : formatCurrency(savingsData?.total || 0)}
                     icon={PiggyBank}
                     color="text-blue-600"
-                    trend={loading ? undefined : "Updated just now"}
+                    trend={loading ? undefined : t('dashboard.just_now')}
                 />
                 <StatCard
-                    label="Interest Earned"
+                    label={t('savings.interest_earned')}
                     value="RWF 0"
                     icon={TrendingUp}
                     color="text-purple-600"
@@ -168,7 +170,7 @@ export default function SavingsPage() {
                         <div className="absolute top-0 right-0 p-4 opacity-10">
                             <PiggyBank className="w-32 h-32" />
                         </div>
-                        <h3 className="font-bold text-lg mb-2 relative z-10">Savings Goal</h3>
+                        <h3 className="font-bold text-lg mb-2 relative z-10">{t('savings.goal')}</h3>
                         <div className="mb-4 relative z-10">
                             <div className="flex justify-between text-sm mb-1 text-emerald-100">
                                 <span>Progress</span>
@@ -207,7 +209,7 @@ export default function SavingsPage() {
                 <div className="lg:col-span-2">
                     <Card className="p-0 overflow-hidden min-h-[500px]">
                         <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-                            <h2 className="font-bold text-slate-900">Recent Activity</h2>
+                            <h2 className="font-bold text-slate-900">{t('savings.history_title')}</h2>
                             <button className="text-slate-400 hover:text-slate-600">
                                 <Filter className="w-4 h-4" />
                             </button>

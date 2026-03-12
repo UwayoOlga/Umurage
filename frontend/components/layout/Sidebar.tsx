@@ -17,26 +17,29 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
-
-const navItems = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Communities", href: "/dashboard/communities", icon: Layers },
-    { label: "Meetings", href: "/dashboard/meetings", icon: Calendar },
-    { label: "Savings", href: "/dashboard/savings", icon: PiggyBank },
-    { label: "Loans", href: "/dashboard/loans", icon: Banknote },
-    { label: "Transactions", href: "/dashboard/transactions", icon: History },
-    { label: "Settings", href: "/dashboard/settings", icon: Settings },
-];
-
-const adminNavItems = [
-    { label: "Admin Dashboard", href: "/dashboard/admin", icon: Shield },
-    { label: "User Management", href: "/dashboard/admin/users", icon: Users },
-    { label: "Groups Overview", href: "/dashboard/admin/groups", icon: Layers },
-];
+import { useLanguage } from "@/context/LanguageContext";
+import { Globe } from "lucide-react";
 
 export function Sidebar() {
     const pathname = usePathname();
     const { user, isAdmin, logout } = useAuth();
+    const { language, setLanguage, t } = useLanguage();
+
+    const navItems = [
+        { label: t('common.dashboard'), href: "/dashboard", icon: LayoutDashboard },
+        { label: t('common.communities'), href: "/dashboard/communities", icon: Layers },
+        { label: t('common.meetings'), href: "/dashboard/meetings", icon: Calendar },
+        { label: t('common.savings'), href: "/dashboard/savings", icon: PiggyBank },
+        { label: t('common.loans'), href: "/dashboard/loans", icon: Banknote },
+        { label: t('common.transactions'), href: "/dashboard/transactions", icon: History },
+        { label: t('common.settings'), href: "/dashboard/settings", icon: Settings },
+    ];
+
+    const adminNavItems = [
+        { label: "Admin Dashboard", href: "/dashboard/admin", icon: Shield },
+        { label: "User Management", href: "/dashboard/admin/users", icon: Users },
+        { label: "Groups Overview", href: "/dashboard/admin/groups", icon: Layers },
+    ];
 
     return (
         <aside className="hidden md:flex flex-col w-64 h-screen bg-white border-r border-slate-100 fixed left-0 top-0 z-40">
@@ -102,9 +105,31 @@ export function Sidebar() {
                 )}
             </nav>
 
-            <div className="p-4 border-t border-slate-50">
+            <div className="p-4 border-t border-slate-50 space-y-2">
+                {/* Language Switcher */}
+                <div className="flex bg-slate-50 rounded-xl p-1 mb-2">
+                    {[
+                        { code: 'en', label: 'EN' },
+                        { code: 'rw', label: 'RW' },
+                        { code: 'fr', label: 'FR' }
+                    ].map((lang) => (
+                        <button
+                            key={lang.code}
+                            onClick={() => setLanguage(lang.code as any)}
+                            className={cn(
+                                "flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all",
+                                language === lang.code
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-slate-400 hover:text-slate-600"
+                            )}
+                        >
+                            {lang.label}
+                        </button>
+                    ))}
+                </div>
+
                 {user && (
-                    <div className="px-4 py-2 mb-2">
+                    <div className="px-4 py-2">
                         <p className="text-sm font-medium text-slate-800 truncate">{user.name}</p>
                         <p className="text-xs text-slate-400 truncate">{user.phone}</p>
                     </div>
@@ -114,7 +139,7 @@ export function Sidebar() {
                     className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all"
                 >
                     <LogOut className="w-5 h-5" />
-                    Sign Out
+                    {t('common.logout')}
                 </button>
             </div>
         </aside>

@@ -22,10 +22,12 @@ import { savingService } from '@/lib/services/saving.service';
 import { loanService } from '@/lib/services/loan.service';
 import { groupService } from '@/lib/services/group.service';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect } from 'react';
 
 export default function Dashboard() {
     const { user, logout } = useAuth();
+    const { t } = useLanguage();
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -160,14 +162,14 @@ export default function Dashboard() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Muraho, {user?.name?.split(' ')[0] || 'Member'}! 👋</h1>
-                    <p className="text-slate-500 text-sm mt-1">Here's what's happening with your group today.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">{t('dashboard.hello')}, {user?.name?.split(' ')[0] || 'Member'}! 👋</h1>
+                    <p className="text-slate-500 text-sm mt-1">{t('dashboard.welcome')}.</p>
                 </div>
                 <div className="hidden md:flex items-center gap-3">
-                    <span className="text-sm text-slate-500">Last updated: Just now</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.last_updated')}: {t('dashboard.just_now')}</span>
                     <button className="btn-primary flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        <span>Schedule Meeting</span>
+                        <span>{t('dashboard.schedule_meeting')}</span>
                     </button>
                 </div>
             </div>
@@ -175,20 +177,20 @@ export default function Dashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Total Savings"
+                    label={t('dashboard.total_savings')}
                     value={loading ? "..." : formatCurrency(summary?.totalSavings || 0)}
                     icon={Wallet}
                     trend={loading ? undefined : "+0% this month"}
                     trendUp={true}
                 />
                 <StatCard
-                    label="Active Loans"
+                    label={t('dashboard.active_loans')}
                     value={loading ? "..." : formatCurrency(summary?.activeLoans || 0)}
                     icon={TrendingUp}
                     color="text-blue-600"
                 />
                 <StatCard
-                    label="Active Members"
+                    label={t('communities.members')}
                     value={loading ? "..." : (summary?.activeMembers || 0).toString()}
                     icon={Users}
                     color="text-purple-600"
@@ -196,7 +198,7 @@ export default function Dashboard() {
                     trendUp={true}
                 />
                 <StatCard
-                    label="Pending Actions"
+                    label={t('loans.pending')}
                     value={loading ? "..." : (summary?.pendingActions || 0).toString()}
                     icon={AlertCircle}
                     color="text-amber-500"
@@ -210,8 +212,8 @@ export default function Dashboard() {
                 {/* Left Column - Recent Activity */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-bold text-slate-800">Recent Transactions</h2>
-                        <button className="text-sm text-emerald-600 font-medium hover:underline">View All</button>
+                        <h2 className="text-lg font-bold text-slate-800">{t('dashboard.recent_activity')}</h2>
+                        <button className="text-sm text-emerald-600 font-medium hover:underline">{t('dashboard.view_all')}</button>
                     </div>
 
                     <Card className="p-0 overflow-hidden">
@@ -249,7 +251,7 @@ export default function Dashboard() {
 
                 {/* Right Column - Quick Actions & Reminders */}
                 <div className="space-y-6">
-                    <h2 className="text-lg font-bold text-slate-800">Quick Actions</h2>
+                    <h2 className="text-lg font-bold text-slate-800">{t('dashboard.quick_actions')}</h2>
                     <div className="grid grid-cols-2 gap-3">
                         <button
                             onClick={() => setShowSavingModal(true)}
@@ -258,7 +260,7 @@ export default function Dashboard() {
                             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Wallet className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block text-sm">Record<br />Saving</span>
+                            <span className="font-semibold text-slate-700 block text-sm">{t('dashboard.record_deposit')}</span>
                         </button>
                         <button
                             onClick={() => setShowLoanModal(true)}
@@ -267,13 +269,13 @@ export default function Dashboard() {
                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Banknote className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block text-sm">Apply for<br />Loan</span>
+                            <span className="font-semibold text-slate-700 block text-sm">{t('dashboard.apply_loan')}</span>
                         </button>
                         <button onClick={() => setShowJoinModal(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left">
                             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
                                 <Plus className="w-6 h-6" />
                             </div>
-                            <span className="font-semibold text-slate-700 block text-sm">Join<br />Community</span>
+                            <span className="font-semibold text-slate-700 block text-sm">{t('communities.join_group')}</span>
                         </button>
                         <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all group text-left">
                             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">

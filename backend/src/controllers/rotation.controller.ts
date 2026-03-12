@@ -88,7 +88,6 @@ export const getRotationInfo = async (req: any, res: any) => {
         }
 
         // Calculate real-time collection progress
-        // Total expected = amount_per_member * number of active members
         const activeMembersCount = db.prepare("SELECT count(*) as count FROM members WHERE group_id = ? AND status = 'active'").get(groupId) as any;
         const expectedTotal = rotation.amount_per_member * activeMembersCount.count;
 
@@ -102,10 +101,19 @@ export const getRotationInfo = async (req: any, res: any) => {
 
         const totalCollected = collectedData?.total || 0;
 
+        // Fetch the queue (members sorted by rotation order)
+        const queue = db.prepare(`
+            SELECT m.id as member_id, m.user_id, u.name, m.rotation_order, m.status
+            FROM members m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.group_id = ? AND m.rotation_order IS NOT NULL
+            ORDER BY m.rotation_order ASC
+        `).all(groupId);
+
         res.status(200).json({
             data: {
                 ...rotation,
-                queue: members,
+                queue,
                 collection: {
                     totalCollected,
                     expectedTotal,
