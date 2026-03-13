@@ -18,6 +18,7 @@ import {
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Globe } from "lucide-react";
 
 export function Sidebar() {
@@ -105,27 +106,13 @@ export function Sidebar() {
                 )}
             </nav>
 
-            <div className="p-4 border-t border-slate-50 space-y-2">
+            <div className="p-4 border-t border-slate-50 space-y-4">
                 {/* Language Switcher */}
-                <div className="flex bg-slate-50 rounded-xl p-1 mb-2">
-                    {[
-                        { code: 'en', label: 'EN' },
-                        { code: 'rw', label: 'RW' },
-                        { code: 'fr', label: 'FR' }
-                    ].map((lang) => (
-                        <button
-                            key={lang.code}
-                            onClick={() => setLanguage(lang.code as any)}
-                            className={cn(
-                                "flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all",
-                                language === lang.code
-                                    ? "bg-white text-slate-900 shadow-sm"
-                                    : "text-slate-400 hover:text-slate-600"
-                            )}
-                        >
-                            {lang.label}
-                        </button>
-                    ))}
+                <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">
+                        {t('common.language')}
+                    </p>
+                    <LanguageSwitcher variant="filled" className="bg-slate-50 rounded-xl p-1" />
                 </div>
 
                 {user && (

@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
+import { cn } from '@/lib/utils';
 import { Eye, EyeOff, Phone, Lock, User, ArrowRight, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function RegisterPage() {
     const router = useRouter();
     const { register, user } = useAuth();
+    const { t } = useLanguage();
 
     const [name, setName] = useState('');
     const [nationalId, setNationalId] = useState('');
@@ -33,7 +37,7 @@ export default function RegisterPage() {
         setError('');
 
         if (!name.trim() || !phone.trim() || !nationalId.trim() || !password || !confirmPassword) {
-            setError('All fields are required.');
+            setError(t('auth.no_account'));
             return;
         }
         if (password.length < 6) {
@@ -49,7 +53,6 @@ export default function RegisterPage() {
         try {
             const message = await register(phone.trim(), password, name.trim(), nationalId.trim());
             setSuccess(message);
-            // Redirection happens via useEffect when user state changes
         } catch (err: any) {
             setError(err.message || 'Registration failed. Please try again.');
         } finally {
@@ -57,19 +60,20 @@ export default function RegisterPage() {
         }
     };
 
-    const passwordStrength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
-    const strengthColors = ['', 'bg-red-500', 'bg-yellow-500', 'bg-emerald-500'];
-    const strengthLabels = ['', 'Weak', 'Fair', 'Strong'];
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 flex items-center justify-center p-4">
+            {/* Language Switcher - Fixed Top Right */}
+            <div className="fixed top-6 right-6 z-50">
+                <LanguageSwitcher className="bg-white/10 backdrop-blur-xl p-1 rounded-2xl border border-white/10" variant="ghost" />
+            </div>
+
             {/* Background decoration */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
                 <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl" />
             </div>
 
-            <div className="relative w-full max-w-md">
+            <div className="relative w-full max-w-md animate-in fade-in zoom-in duration-500">
                 {/* Card */}
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
                     {/* Back Link */}
@@ -78,27 +82,29 @@ export default function RegisterPage() {
                         className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs mb-6 group"
                     >
                         <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-                        Back to Dashboard
+                        {t('auth.back_to_dashboard')}
                     </Link>
 
                     {/* Logo */}
-                    <div className="flex flex-col items-center mb-8">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
-                            <Image src="/favicon.ico" alt="Umurage" width={32} height={32} className="rounded-lg" />
+                    <div className="flex flex-col items-center mb-10">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-0.5 shadow-lg shadow-emerald-500/20 mb-6">
+                            <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center">
+                                <Image src="/favicon.ico" alt="Umurage" width={32} height={32} className="rounded-lg" />
+                            </div>
                         </div>
-                        <h1 className="text-2xl font-bold text-white">Create account</h1>
-                        <p className="text-slate-400 text-sm mt-1">Join Umurage and manage your savings group</p>
+                        <h1 className="text-3xl font-extrabold text-white tracking-tight">{t('auth.create_account')}</h1>
+                        <p className="text-slate-400 text-sm mt-3 text-center px-4 leading-relaxed">{t('auth.signup_desc')}</p>
                     </div>
 
                     {/* Status Messages */}
                     {error && (
-                        <div className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm animate-in fade-in slide-in-from-top-1">
+                        <div className="mb-6 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm animate-in slide-in-from-top-2">
                             {error}
                         </div>
                     )}
 
                     {success && (
-                        <div className="mb-5 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm animate-in fade-in slide-in-from-top-1 flex items-center gap-2">
+                        <div className="mb-6 px-4 py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm animate-in slide-in-from-top-2 flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             {success}
                         </div>
@@ -108,15 +114,15 @@ export default function RegisterPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Name */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Full Name</label>
-                            <div className="relative">
-                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">{t('auth.fullname')}</label>
+                            <div className="relative group">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="e.g. Amina Uwase"
-                                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                                    placeholder="Amina Uwase"
+                                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                                     autoComplete="name"
                                     disabled={loading}
                                 />
@@ -125,15 +131,15 @@ export default function RegisterPage() {
 
                         {/* National ID */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">National ID (16 Digits)</label>
-                            <div className="relative">
-                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">{t('auth.national_id')}</label>
+                            <div className="relative group">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
                                 <input
                                     type="text"
                                     value={nationalId}
                                     onChange={(e) => setNationalId(e.target.value.replace(/[^0-9]/g, '').slice(0, 16))}
-                                    placeholder="e.g. 1199..."
-                                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                                    placeholder="1199..."
+                                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                                     disabled={loading}
                                 />
                             </div>
@@ -141,78 +147,57 @@ export default function RegisterPage() {
 
                         {/* Phone */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Phone Number</label>
-                            <div className="relative">
-                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">{t('auth.phone')}</label>
+                            <div className="relative group">
+                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
                                 <input
                                     type="tel"
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
-                                    placeholder="e.g. 0788123456"
-                                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                                    placeholder="0788..."
+                                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                                     autoComplete="tel"
                                     disabled={loading}
                                 />
                             </div>
                         </div>
 
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Min. 6 characters"
-                                    className="w-full pl-10 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                                    autoComplete="new-password"
-                                    disabled={loading}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                            {/* Password strength */}
-                            {password.length > 0 && (
-                                <div className="mt-2 flex items-center gap-2">
-                                    <div className="flex gap-1 flex-1">
-                                        {[1, 2, 3].map((i) => (
-                                            <div
-                                                key={i}
-                                                className={`h-1 flex-1 rounded-full transition-all ${i <= passwordStrength ? strengthColors[passwordStrength] : 'bg-white/10'}`}
-                                            />
-                                        ))}
-                                    </div>
-                                    <span className={`text-xs font-medium ${passwordStrength === 1 ? 'text-red-400' : passwordStrength === 2 ? 'text-yellow-400' : 'text-emerald-400'}`}>
-                                        {strengthLabels[passwordStrength]}
-                                    </span>
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Password */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">{t('auth.password')}</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••"
+                                        className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                                        autoComplete="new-password"
+                                        disabled={loading}
+                                    />
                                 </div>
-                            )}
-                        </div>
+                            </div>
 
-                        {/* Confirm Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirm Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Repeat your password"
-                                    className="w-full pl-10 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                                    autoComplete="new-password"
-                                    disabled={loading}
-                                />
-                                {confirmPassword && password === confirmPassword && (
-                                    <CheckCircle2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
-                                )}
+                            {/* Confirm Password */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">{t('auth.confirm_password')}</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="••••"
+                                        className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+                                        autoComplete="new-password"
+                                        disabled={loading}
+                                    />
+                                    {confirmPassword && password === confirmPassword && (
+                                        <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -220,35 +205,35 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full mt-2 py-3 px-6 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30"
+                            className="w-full mt-6 py-4 px-6 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-900/40 hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {loading ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
+                                <><Loader2 className="w-5 h-5 animate-spin" /> {t('auth.creating_account')}</>
                             ) : (
-                                <>Create Account <ArrowRight className="w-4 h-4" /></>
+                                <>{t('auth.create_account')} <ArrowRight className="w-5 h-5" /></>
                             )}
                         </button>
                     </form>
 
                     {/* Divider */}
-                    <div className="my-6 flex items-center gap-3">
+                    <div className="my-8 flex items-center gap-4">
                         <div className="flex-1 h-px bg-white/10" />
-                        <span className="text-slate-500 text-xs">Already have an account?</span>
+                        <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{t('auth.has_account')}</span>
                         <div className="flex-1 h-px bg-white/10" />
                     </div>
 
                     {/* Login link */}
                     <Link
                         href="/login"
-                        className="block w-full py-3 px-6 border border-white/10 hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-300 hover:text-white font-medium rounded-xl transition-all text-center"
+                        className="block w-full py-4 px-6 border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 text-slate-300 hover:text-white font-bold rounded-2xl transition-all text-center text-sm"
                     >
-                        Sign in instead
+                        {t('auth.signin_instead')}
                     </Link>
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-slate-600 text-xs mt-6">
-                    © 2026 Umurage Ltd. Built for Rwanda 🇷🇼
+                <p className="text-center text-slate-600 text-xs mt-8">
+                    © 2026 Umurage Ltd. {t('landing.footer')}
                 </p>
             </div>
         </div>

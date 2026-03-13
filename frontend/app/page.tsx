@@ -1,35 +1,46 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CheckCircle2, Shield, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Shield, Zap, Languages } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { cn } from "@/lib/utils";
 
 export default function LandingPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Navbar */}
       <nav className="border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative w-8 h-8 rounded-full overflow-hidden shadow-sm bg-white">
+            <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-sm bg-white border border-slate-100 p-1">
               <Image src="/favicon.ico" alt="Umurage Logo" width={32} height={32} className="object-cover" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-emerald-700 to-emerald-500 bg-clip-text text-transparent">
+            <span className="text-2xl font-black bg-gradient-to-r from-emerald-700 to-emerald-500 bg-clip-text text-transparent tracking-tighter">
               Umurage
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors hidden md:block"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="btn-primary flex items-center gap-2 text-sm"
-            >
-              Get Started <ArrowRight className="w-4 h-4" />
-            </Link>
+          <div className="flex items-center gap-4 lg:gap-8">
+            <LanguageSwitcher className="scale-90 sm:scale-100" />
+
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Link
+                href="/login"
+                className="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors hidden md:block"
+              >
+                {t('auth.login')}
+              </Link>
+              <Link
+                href="/register"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2 text-sm"
+              >
+                {t('auth.register')} <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -43,18 +54,18 @@ export default function LandingPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              Now available for all SACCOs in Rwanda
+              {t('landing.hero_badge')}
             </div>
 
             <h1 className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tight mb-6 leading-tight">
-              Modern Savings Groups <br />
+              {t('landing.hero_title')} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
-                Built on Trust.
+                {t('landing.hero_subtitle')}
               </span>
             </h1>
 
             <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Experience the future of Ibimina. Secure contributions, instant loans, and transparent record-keeping all in one beautiful app.
+              {t('landing.hero_desc')}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -62,13 +73,13 @@ export default function LandingPage() {
                 href="/register"
                 className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
               >
-                Get Started <ArrowRight className="w-5 h-5" />
+                {t('auth.register')} <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
                 href="/login"
                 className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all text-center"
               >
-                Sign In
+                {t('auth.login')}
               </Link>
             </div>
           </div>
@@ -84,18 +95,18 @@ export default function LandingPage() {
               {[
                 {
                   icon: Shield,
-                  title: "Bank-Grade Security",
-                  desc: "Your group's data is protected with enterprise-level encryption and secure backups."
+                  title: t('landing.features.security_title'),
+                  desc: t('landing.features.security_desc')
                 },
                 {
                   icon: Zap,
-                  title: "Instant Mobile Money",
-                  desc: "Seamless integration with MTN MoMo and Airtel Money for instant transfers at zero fees."
+                  title: t('landing.features.momo_title'),
+                  desc: t('landing.features.momo_desc')
                 },
                 {
                   icon: CheckCircle2,
-                  title: "Transparent Records",
-                  desc: "Every franc is accounted for. Real-time updates for all members, eliminating disputes."
+                  title: t('landing.features.records_title'),
+                  desc: t('landing.features.records_desc')
                 }
               ].map((feature, i) => (
                 <div key={i} className="group p-8 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 transition-colors border border-transparent hover:border-emerald-100">
@@ -120,7 +131,7 @@ export default function LandingPage() {
             </div>
             <span className="font-semibold text-slate-200">Umurage</span>
           </div>
-          <p className="text-sm">© 2026 Umurage Ltd. Built for Rwanda 🇷🇼</p>
+          <p className="text-sm">© 2026 Umurage Ltd. {t('landing.footer')}</p>
         </div>
       </footer>
     </div>
