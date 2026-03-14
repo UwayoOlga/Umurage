@@ -38,4 +38,44 @@ export const rotationService = {
         if (!response.ok) throw new Error(json.message || 'Failed to disburse payout');
         return json;
     },
+
+    requestSwap: async (groupId: string, reason: string) => {
+        const response = await fetch(`${API_URL}/rotations/groups/${groupId}/swaps/request`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ reason }),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.error || json.message || 'Failed to submit request');
+        return json;
+    },
+
+    getPendingRequests: async (groupId: string) => {
+        const response = await fetch(`${API_URL}/rotations/groups/${groupId}/swaps/pending`, {
+            headers: getAuthHeaders(),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || 'Failed to fetch requests');
+        return json;
+    },
+
+    handleSwapRequest: async (groupId: string, requestId: string, action: 'approve' | 'reject') => {
+        const response = await fetch(`${API_URL}/rotations/groups/${groupId}/swaps/${requestId}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ action }),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || 'Failed to process request');
+        return json;
+    },
+
+    getRotationHistory: async (groupId: string) => {
+        const response = await fetch(`${API_URL}/rotations/groups/${groupId}/history`, {
+            headers: getAuthHeaders(),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || 'Failed to fetch rotation history');
+        return json;
+    },
 };

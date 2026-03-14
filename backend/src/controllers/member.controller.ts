@@ -114,9 +114,21 @@ export const approveMember = async (req: AuthRequest, res: Response) => {
             throw new AppError('Only Admins or Secretaries can approve members.', 403);
         }
 
-        db.prepare('UPDATE members SET status = ? WHERE id = ?').run('active', id);
+        db.transaction(() => {
+            // 1. Mark as active
+            db.prepare('UPDATE members SET status = ? WHERE id = ?').run('active', id);
 
-        res.status(200).json({ success: true, message: 'Member approved successfully' });
+            // 2. If a rotation is active, put this new member at the end of the queue
+            const activeRotation = db.prepare('SELECT id FROM rotations WHERE group_id = ? AND status = ?').get(member.group_id, 'active');
+
+            if (activeRotation) {
+                const maxOrder = db.prepare('SELECT MAX(rotation_order) as max_ord FROM members WHERE group_id = ?').get(member.group_id) as any;
+                const nextOrder = (maxOrder?.max_ord || 0) + 1;
+                db.prepare('UPDATE members SET rotation_order = ? WHERE id = ?').run(nextOrder, id);
+            }
+        })();
+
+        res.status(200).json({ success: true, message: 'Member approved and added to rotation queue.' });
     } catch (error) {
         if (error instanceof AppError) return res.status(error.statusCode).json({ success: false, message: error.message });
         res.status(500).json({ success: false, message: 'Server error' });

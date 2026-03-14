@@ -47,26 +47,44 @@ export default function LoansPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [loansRes, summaryRes, groupsRes, pendingRes] = await Promise.allSettled([
+            const results = await Promise.allSettled([
                 loanService.getMyLoans(),
-                dashboardService.getSummary(),
+                // dashboardService.getSummary(), // Removed because it doesn't exist
                 groupService.getMyGroups(),
                 loanService.getPendingLoans(),
             ]);
 
-            if (loansRes.status === 'fulfilled') setLoans(loansRes.value.data);
-            if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value.data);
+            const [loansRes, groupsRes, pendingRes] = results;
+
+            // Check if any request failed due to token issues
+            for (const res of results) {
+                if (res.status === 'rejected') {
+                    const msg = res.reason?.message || "";
+                    if (msg.toLowerCase().includes('token') || msg.toLowerCase().includes('authorized')) {
+                        logout();
+                        return;
+                    }
+                }
+            }
+
+            if (loansRes.status === 'fulfilled') {
+                const fetchedLoans = loansRes.value.data;
+                setLoans(fetchedLoans);
+
+                // Calculate active loans sum manually
+                const activeSum = fetchedLoans
+                    .filter((l: any) => ['approved', 'disbursed', 'pending'].includes(l.status))
+                    .reduce((sum: number, loan: any) => sum + Number(loan.amount || 0), 0);
+
+                setSummary({ activeLoans: activeSum });
+            }
             if (groupsRes.status === 'fulfilled') {
                 setGroups(groupsRes.value.data);
                 if (groupsRes.value.data.length > 0) setSelectedGroupId(groupsRes.value.data[0].id);
             }
             if (pendingRes.status === 'fulfilled') setPendingLoans(pendingRes.value.data);
         } catch (error: any) {
-            if (error.message && error.message.toLowerCase().includes('token')) {
-                logout();
-            } else {
-                console.log("Error fetching loans:", error);
-            }
+            console.error("fetchData unexpected error:", error);
         } finally {
             setLoading(false);
         }

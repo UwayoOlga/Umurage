@@ -54,20 +54,36 @@ export default function Dashboard() {
     const fetchSummary = async () => {
         setLoading(true);
         try {
-            const result = await dashboardService.getSummary();
-            setSummary(result.data);
+            const results = await Promise.allSettled([
+                dashboardService.getSummary(),
+                groupService.getMyGroups()
+            ]);
 
-            const groupsRes = await groupService.getMyGroups();
-            setGroups(groupsRes.data);
-            if (groupsRes.data.length > 0) {
-                setSelectedGroupId(groupsRes.data[0].id);
+            const [summaryRes, groupsRes] = results;
+
+            // Check if any request failed due to token issues
+            for (const res of results) {
+                if (res.status === 'rejected') {
+                    const msg = res.reason?.message || "";
+                    if (msg.toLowerCase().includes('token') || msg.toLowerCase().includes('authorized')) {
+                        logout();
+                        return;
+                    }
+                }
+            }
+
+            if (summaryRes.status === 'fulfilled') {
+                setSummary(summaryRes.value.data);
+            }
+
+            if (groupsRes.status === 'fulfilled') {
+                setGroups(groupsRes.value.data);
+                if (groupsRes.value.data.length > 0) {
+                    setSelectedGroupId(groupsRes.value.data[0].id);
+                }
             }
         } catch (error: any) {
-            if (error.message && error.message.toLowerCase().includes('token')) {
-                logout(); // Automatically redirect to login
-            } else {
-                console.log('Error fetching dashboard summary:', error);
-            }
+            console.error('Error fetching dashboard summary:', error);
         } finally {
             setLoading(false);
         }

@@ -101,14 +101,25 @@ export const getRotationInfo = async (req: any, res: any) => {
 
         const totalCollected = collectedData?.total || 0;
 
-        // Fetch the queue (members sorted by rotation order)
+        // Fetch the queue (members sorted by rotation order) with payment status for the current turn
         const queue = db.prepare(`
-            SELECT m.id as member_id, m.user_id, u.name, m.rotation_order, m.status
+            SELECT 
+                m.id as member_id, 
+                m.user_id, 
+                u.name, 
+                m.rotation_order, 
+                m.status,
+                EXISTS (
+                    SELECT 1 FROM savings s 
+                    WHERE s.member_id = m.id 
+                    AND s.type = 'regular' 
+                    AND s.created_at >= ?
+                ) as has_paid
             FROM members m
             JOIN users u ON m.user_id = u.id
             WHERE m.group_id = ? AND m.rotation_order IS NOT NULL
             ORDER BY m.rotation_order ASC
-        `).all(groupId);
+        `).all(rotation.updated_at, groupId);
 
         res.status(200).json({
             data: {
@@ -133,7 +144,7 @@ export const disbursePayout = async (req: any, res: any) => {
         const userId = req.user?.id;
 
         const rotation = db.prepare(`
-            SELECT r.*, g.contribution_frequency, m.rotation_order as current_order
+            SELECT r.*, g.contribution_frequency, g.penalty_amount, m.rotation_order as current_order
             FROM rotations r
             JOIN groups g ON r.group_id = g.id
             JOIN members m ON r.current_turn_member_id = m.id
@@ -167,14 +178,37 @@ export const disbursePayout = async (req: any, res: any) => {
                 else if (rotation.contribution_frequency === 'biweekly') nextPayoutDate.setDate(currentPayoutDate.getDate() + 14);
                 else if (rotation.contribution_frequency === 'monthly') nextPayoutDate.setMonth(currentPayoutDate.getMonth() + 1);
 
+                // 2. Automate Penalties: Find everyone who hasn't paid in this turn
+                const unpaidMembers = db.prepare(`
+                    SELECT m.id 
+                    FROM members m
+                    WHERE m.group_id = ? AND m.status = 'active'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM savings s 
+                        WHERE s.member_id = m.id 
+                        AND s.type = 'regular' 
+                        AND s.created_at >= ?
+                    )
+                `).all(groupId, rotation.updated_at) as any[];
+
+                const penaltyAmount = rotation.penalty_amount || 500;
+                const insertPenalty = db.prepare(`
+                    INSERT INTO savings (member_id, amount, type, notes)
+                    VALUES (?, ?, 'penalty', ?)
+                `);
+
+                unpaidMembers.forEach(m => {
+                    insertPenalty.run(m.id, penaltyAmount, `Auto-penalty: Missed contribution for turn ending ${new Date().toLocaleDateString()}`);
+                });
+
                 db.prepare(`
                     UPDATE rotations 
-                    SET current_turn_member_id = ?, payout_date = ?, updated_at = ? 
+                    SET current_turn_member_id = ?, payout_date = ?, updated_at = datetime('now') 
                     WHERE id = ?
-                `).run(nextMember.id, nextPayoutDate.toISOString().split('T')[0], new Date().toISOString(), rotation.id);
+                `).run(nextMember.id, nextPayoutDate.toISOString().split('T')[0], rotation.id);
             } else {
                 // Complete cycle
-                db.prepare("UPDATE rotations SET status = 'completed', updated_at = ? WHERE id = ?").run(new Date().toISOString(), rotation.id);
+                db.prepare("UPDATE rotations SET status = 'completed', updated_at = datetime('now') WHERE id = ?").run(rotation.id);
             }
         });
 
@@ -186,3 +220,135 @@ export const disbursePayout = async (req: any, res: any) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+export const requestEmergencySwap = async (req: any, res: any) => {
+    try {
+        const { groupId } = req.params;
+        const { reason } = req.body;
+        const userId = req.user.id;
+
+        const member = db.prepare('SELECT id FROM members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        if (!member) return res.status(403).json({ error: 'You are not a member of this group' });
+
+        // Check for active rotation
+        const rotation = db.prepare('SELECT id FROM rotations WHERE group_id = ? AND status = ?').get(groupId, 'active');
+        if (!rotation) return res.status(400).json({ error: 'No active rotation cycle found' });
+
+        // Check if member is already a recipient (turn passed)
+        const currentRot = db.prepare(`
+            SELECT m.rotation_order as current_ord, (SELECT rotation_order FROM members WHERE id = ?) as my_ord
+            FROM rotations r
+            JOIN members m ON r.current_turn_member_id = m.id
+            WHERE r.group_id = ? AND r.status = 'active'
+        `).get(member.id, groupId) as any;
+
+        if (currentRot.my_ord <= currentRot.current_ord) {
+            return res.status(400).json({ error: 'You have already received your payout or are currently receiving it.' });
+        }
+
+        // Check if already has a pending request
+        const existing = db.prepare('SELECT id FROM rotation_requests WHERE group_id = ? AND member_id = ? AND status = ?')
+            .get(groupId, member.id, 'pending');
+        if (existing) return res.status(400).json({ error: 'You already have a pending swap request' });
+
+        db.prepare(`
+            INSERT INTO rotation_requests (group_id, member_id, type, reason)
+            VALUES (?, ?, 'emergency_swap', ?)
+        `).run(groupId, member.id, reason);
+
+        res.status(201).json({ message: 'Emergency swap request submitted successfully. Awaiting approval from group leaders.' });
+    } catch (error) {
+        console.error('Request swap error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const getPendingRequests = async (req: any, res: any) => {
+    try {
+        const { groupId } = req.params;
+        const requests = db.prepare(`
+            SELECT rr.*, u.name as member_name, m.rotation_order
+            FROM rotation_requests rr
+            JOIN members m ON rr.member_id = m.id
+            JOIN users u ON m.user_id = u.id
+            WHERE rr.group_id = ? AND rr.status = 'pending'
+            ORDER BY rr.created_at ASC
+        `).all(groupId);
+
+        res.status(200).json({ data: requests });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+export const handleSwapRequest = async (req: any, res: any) => {
+    try {
+        const { groupId, requestId } = req.params;
+        const { action } = req.body; // 'approve' or 'reject'
+        const userId = req.user.id;
+
+        const leaderCheck = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        if (!leaderCheck || !['admin', 'secretary'].includes(leaderCheck.role)) {
+            return res.status(403).json({ error: 'Only group admins or secretaries can approve swaps' });
+        }
+
+        const request = db.prepare('SELECT * FROM rotation_requests WHERE id = ?').get(requestId) as any;
+        if (!request) return res.status(404).json({ error: 'Request not found' });
+
+        if (action === 'reject') {
+            db.prepare('UPDATE rotation_requests SET status = ?, updated_at = datetime(\'now\') WHERE id = ?').run('rejected', requestId);
+            return res.status(200).json({ message: 'Request rejected' });
+        }
+
+        // Logic for Approve: Swap Requester with Current Recipient
+        const executeSwap = db.transaction(() => {
+            const rotation = db.prepare('SELECT current_turn_member_id FROM rotations WHERE group_id = ? AND status = ?').get(groupId, 'active') as any;
+            if (!rotation) throw new Error('No active rotation');
+
+            const requester = db.prepare('SELECT id, rotation_order FROM members WHERE id = ?').get(request.member_id) as any;
+            const current = db.prepare('SELECT id, rotation_order FROM members WHERE id = ?').get(rotation.current_turn_member_id) as any;
+
+            // Swap orders
+            db.prepare('UPDATE members SET rotation_order = ? WHERE id = ?').run(requester.rotation_order, current.id);
+            db.prepare('UPDATE members SET rotation_order = ? WHERE id = ?').run(current.rotation_order, requester.id);
+
+            // Set requester as current turn holder
+            db.prepare('UPDATE rotations SET current_turn_member_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(requester.id, rotation.id);
+
+            // Mark request as approved
+            db.prepare('UPDATE rotation_requests SET status = ?, updated_at = datetime(\'now\') WHERE id = ?').run('approved', requestId);
+        });
+
+        executeSwap();
+        res.status(200).json({ message: 'Swap approved! The requester is now next in line for the payout.' });
+    } catch (error: any) {
+        console.error('Handle swap error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+};
+
+export const getRotationHistory = async (req: any, res: any) => {
+    try {
+        const { groupId } = req.params;
+
+        const history = db.prepare(`
+            SELECT 
+                r.id,
+                r.amount_per_member,
+                r.created_at as start_date,
+                r.updated_at as completion_date,
+                (SELECT count(*) FROM members WHERE group_id = r.group_id) as member_count,
+                (SELECT count(*) FROM transactions WHERE reference_type = 'rotation' AND reference_id = r.id AND type = 'share_out') as payouts_made,
+                (SELECT SUM(amount) FROM transactions WHERE reference_type = 'rotation' AND reference_id = r.id AND type = 'share_out') as total_disbursed
+            FROM rotations r
+            WHERE r.group_id = ? AND r.status = 'completed'
+            ORDER BY r.updated_at DESC
+        `).all(groupId);
+
+        res.status(200).json({ data: history });
+    } catch (error) {
+        console.error('Get rotation history error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+

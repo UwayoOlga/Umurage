@@ -9,6 +9,19 @@ class DashboardService {
         };
     }
 
+    async getSummary() {
+        const response = await fetch(`${API_URL}/dashboard/summary`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch dashboard summary');
+        }
+
+        return response.json();
+    }
+
     async getTransactions() {
         const response = await fetch(`${API_URL}/transactions`, {
             headers: this.getAuthHeaders(),

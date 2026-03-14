@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     ArrowLeft, Users, PiggyBank, Play, Clock, CheckCircle2,
-    Crown, BookOpen, Wallet, User, ChevronDown, Shield, Loader2
+    Crown, BookOpen, Wallet, User, ChevronDown, Shield, Loader2, Plus
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
@@ -57,29 +57,65 @@ export default function CommunityDetailsPage() {
     const [contribNotes, setContribNotes] = useState('');
     const [contribSubmitting, setContribSubmitting] = useState(false);
 
+    const [swapRequests, setSwapRequests] = useState<any[]>([]);
+    const [showSwapModal, setShowSwapModal] = useState(false);
+    const [swapReason, setSwapReason] = useState('');
+    const [swapSubmitting, setSwapSubmitting] = useState(false);
+
+    // History State
+    const [history, setHistory] = useState<any[]>([]);
+
     useEffect(() => { fetchData(); }, [groupId]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [membersRes, rotRes, summaryRes] = await Promise.allSettled([
+            const isLeader = ['admin', 'secretary'].includes(myRole);
+            const calls: Promise<any>[] = [
                 dashboardService.getGroupMemberList(groupId),
                 rotationService.getRotationInfo(groupId),
                 groupService.getGroupSummary(groupId),
-            ]);
+                rotationService.getRotationHistory(groupId) // Fetch history unconditionally
+            ];
+
+            // Re-evaluating leadership after role is set, but for initial fetch we might need to wait or rely on member list
+            // For now, let's just always try or check myRole if it's already available
+            if (myRole === 'admin' || myRole === 'secretary') {
+                calls.push(rotationService.getPendingRequests(groupId));
+            }
+
+            const results = await Promise.allSettled(calls);
+            const [membersRes, rotRes, summaryRes, historyRes, swapRes] = results;
+
+            // Check if any request failed due to token issues
+            for (const res of results) {
+                if (res.status === 'rejected') {
+                    const msg = res.reason?.message || "";
+                    if (msg.toLowerCase().includes('token') || msg.toLowerCase().includes('authorized')) {
+                        logout();
+                        return;
+                    }
+                }
+            }
 
             if (membersRes.status === 'fulfilled') {
-                setMembers(membersRes.value.data || []);
-                setMyRole(membersRes.value.myRole || 'member');
+                const fetchedMembers = membersRes.value.data || [];
+                setMembers(fetchedMembers);
+                const role = membersRes.value.myRole || 'member';
+                setMyRole(role);
+
+                // If we didn't fetch swaps but we just found out we are a leader, fetch them now
+                if ((role === 'admin' || role === 'secretary') && results.length < 4) {
+                    rotationService.getPendingRequests(groupId).then(res => setSwapRequests(res.data)).catch(() => { });
+                }
             }
-            if (rotRes.status === 'fulfilled') {
-                setRotation(rotRes.value.data);
-            }
-            if (summaryRes.status === 'fulfilled') {
-                setSummary(summaryRes.value.data);
-            }
+            if (rotRes.status === 'fulfilled') setRotation(rotRes.value.data);
+            if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value.data);
+            if (historyRes && historyRes.status === 'fulfilled') setHistory(historyRes.value.data);
+            if (swapRes && swapRes.status === 'fulfilled') setSwapRequests(swapRes.value.data);
+
         } catch (error: any) {
-            if (error.message?.toLowerCase().includes('token')) logout();
+            console.error("fetchData unexpected error:", error);
         } finally {
             setLoading(false);
         }
@@ -138,17 +174,44 @@ export default function CommunityDetailsPage() {
                 groupId,
                 amount: parseFloat(contribAmount),
                 paymentMethod: contribMethod,
+                type: contribType,
                 notes: contribNotes,
-                type: contribType
             });
             setShowContributeModal(false);
             setContribAmount('');
             setContribNotes('');
-            fetchData(); // Refresh to see progress move!
+            fetchData();
         } catch (error: any) {
             alert(error?.message || 'Failed to record contribution');
         } finally {
             setContribSubmitting(false);
+        }
+    };
+
+    const handleRequestSwap = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSwapSubmitting(true);
+        try {
+            const res = await rotationService.requestSwap(groupId, swapReason);
+            alert(res.message);
+            setShowSwapModal(false);
+            setSwapReason('');
+            fetchData();
+        } catch (error: any) {
+            alert(error.message || 'Failed to submit swap request');
+        } finally {
+            setSwapSubmitting(false);
+        }
+    };
+
+    const handleProcessSwap = async (requestId: string, action: 'approve' | 'reject') => {
+        if (!window.confirm(`Are you sure you want to ${action} this emergency swap?`)) return;
+        try {
+            const res = await rotationService.handleSwapRequest(groupId, requestId, action);
+            alert(res.message);
+            fetchData();
+        } catch (error: any) {
+            alert(error.message || 'Failed to process request');
         }
     };
 
@@ -213,13 +276,33 @@ export default function CommunityDetailsPage() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={cn(
-                            'px-5 py-2 rounded-lg text-sm font-bold capitalize transition-all whitespace-nowrap',
-                            activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            'px-5 py-2.5 rounded-xl text-sm font-bold capitalize transition-all whitespace-nowrap flex items-center gap-2.5',
+                            activeTab === tab
+                                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                         )}
                     >
-                        {tab === 'rotation' ? `🔄 ${t('communities.rotation')}` :
-                            tab === 'members' ? `👥 ${t('communities.members')} (${activeMembers.length})` :
-                                `📊 ${t('communities.insights')}`}
+                        {tab === 'rotation' && (
+                            <div className={cn("p-1.5 rounded-lg", activeTab === 'rotation' ? "bg-purple-100 text-purple-600" : "bg-slate-200 text-slate-500")}>
+                                <Activity className="w-3.5 h-3.5" />
+                            </div>
+                        )}
+                        {tab === 'members' && (
+                            <div className={cn("p-1.5 rounded-lg", activeTab === 'members' ? "bg-blue-100 text-blue-600" : "bg-slate-200 text-slate-500")}>
+                                <Users className="w-3.5 h-3.5" />
+                            </div>
+                        )}
+                        {tab === 'insights' && (
+                            <div className={cn("p-1.5 rounded-lg", activeTab === 'insights' ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-500")}>
+                                <TrendingUp className="w-3.5 h-3.5" />
+                            </div>
+                        )}
+
+                        <span>
+                            {tab === 'rotation' ? t('communities.rotation') :
+                                tab === 'members' ? `${t('communities.members')} (${activeMembers.length})` :
+                                    t('communities.insights')}
+                        </span>
                     </button>
                 ))}
             </div>
@@ -299,10 +382,57 @@ export default function CommunityDetailsPage() {
                                             <Plus className="w-4 h-4" />
                                             {t('communities.contribute')}
                                         </button>
+                                        {/* Emergency Swap Trigger for Members */}
+                                        {rotation.queue?.find((q: any) => q.user_id === user?.id)?.rotation_order > (rotation.queue?.find((q: any) => q.user_id === rotation.current_member_user_id)?.rotation_order || 0) && (
+                                            <button
+                                                onClick={() => setShowSwapModal(true)}
+                                                className="col-span-2 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-black text-xs uppercase tracking-wider transition-all border border-red-100 mt-2 flex items-center justify-center gap-2"
+                                            >
+                                                <Activity className="w-3.5 h-3.5" />
+                                                {t('communities.request_payout')}
+                                            </button>
+                                        )}
                                     </div>
                                 </Card>
                             </div>
                         </div>
+
+                        {/* Pending Swap Requests (Leaders Only) */}
+                        {swapRequests.length > 0 && (myRole === 'admin' || myRole === 'secretary') && (
+                            <div className="space-y-3">
+                                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 ml-1">
+                                    <Activity className="w-4 h-4 text-red-500" />
+                                    {t('communities.active_requests')}
+                                </h3>
+                                {swapRequests.map((req) => (
+                                    <Card key={req.id} className="p-4 border-red-200 bg-red-50/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-black">
+                                                {req.member_name?.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900">{req.member_name}</p>
+                                                <p className="text-xs text-slate-500 italic">" {req.reason} "</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleProcessSwap(req.id, 'reject')}
+                                                className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-all"
+                                            >
+                                                {t('communities.reject_swap')}
+                                            </button>
+                                            <button
+                                                onClick={() => handleProcessSwap(req.id, 'approve')}
+                                                className="px-4 py-1.5 text-xs font-bold bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm transition-all"
+                                            >
+                                                {t('communities.approve_swap')}
+                                            </button>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Rotation Queue */}
                         <Card className="overflow-hidden">
@@ -327,10 +457,26 @@ export default function CommunityDetailsPage() {
                                                     <p className="text-xs text-slate-500">{isCurrent ? 'Currently receiving' : isPast ? 'Already received' : 'Waiting'}</p>
                                                 </div>
                                             </div>
-                                            <span className={cn('px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider',
-                                                isCurrent ? 'bg-purple-200 text-purple-700' : isPast ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400')}>
-                                                {isCurrent ? 'Active' : isPast ? 'Done' : 'Pending'}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {/* Payment Status Badge */}
+                                                <span className={cn(
+                                                    'px-2 py-0.5 text-[10px] font-black uppercase tracking-tighter rounded border flex items-center gap-1',
+                                                    m.has_paid
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                        : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                )}>
+                                                    {m.has_paid ? (
+                                                        <><CheckCircle2 className="w-2.5 h-2.5" /> Paid</>
+                                                    ) : (
+                                                        <><Clock className="w-2.5 h-2.5" /> Pending</>
+                                                    )}
+                                                </span>
+
+                                                <span className={cn('px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider',
+                                                    isCurrent ? 'bg-purple-200 text-purple-700' : isPast ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400')}>
+                                                    {isCurrent ? 'Receiving' : isPast ? 'Done' : 'Waiting'}
+                                                </span>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -338,16 +484,66 @@ export default function CommunityDetailsPage() {
                         </Card>
                     </div>
                 ) : (
-                    <Card className="p-16 text-center border-dashed border-2 bg-slate-50">
-                        <PiggyBank className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">No Active Rotation</h3>
-                        <p className="text-slate-500 max-w-md mx-auto mb-6">No Ikimina cycle is running. {isChairperson ? 'Start a new cycle to randomly shuffle members and begin payouts.' : 'Ask your Chairperson to start a rotation cycle.'}</p>
-                        {isChairperson && activeMembers.length > 1 && (
-                            <button onClick={() => setShowStartModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-purple-600/20">
-                                Start First Rotation
-                            </button>
-                        )}
-                    </Card>
+                    <div className="space-y-6">
+                        <Card className="p-16 text-center border-dashed border-2 bg-slate-50">
+                            <PiggyBank className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">No Active Rotation</h3>
+                            <p className="text-slate-500 max-w-md mx-auto mb-6">No Ikimina cycle is running. {isChairperson ? 'Start a new cycle to randomly shuffle members and begin payouts.' : 'Ask your Chairperson to start a rotation cycle.'}</p>
+                            {isChairperson && activeMembers.length > 1 && (
+                                <button onClick={() => setShowStartModal(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-purple-600/20">
+                                    Start First Rotation
+                                </button>
+                            )}
+                        </Card>
+
+                        {/* Past Cycles History */}
+                        <div className="space-y-4 pt-6">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <BookOpen className="w-5 h-5 text-purple-600" />
+                                {t('communities.cycle_history')}
+                            </h3>
+                            {history.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {history.map((cycle: any) => (
+                                        <Card key={cycle.id} className="p-5 border-slate-200">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold uppercase tracking-wider">
+                                                        {t('communities.cycle_completed')}
+                                                    </span>
+                                                    <p className="text-sm text-slate-500 mt-2 font-medium">
+                                                        {new Date(cycle.start_date).toLocaleDateString()} - {new Date(cycle.completion_date).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('communities.pot_size')}</p>
+                                                    <p className="font-black text-slate-900">{formatCurrency(cycle.amount_per_member * cycle.member_count)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="pt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 rounded-lg p-3">
+                                                <div className="flex gap-4">
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">{t('communities.members')}</p>
+                                                        <p className="font-bold text-slate-700">{cycle.member_count}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Payouts</p>
+                                                        <p className="font-bold text-slate-700">{cycle.payouts_made}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase">{t('communities.total_disbursed')}</p>
+                                                    <p className="font-bold text-purple-700">{formatCurrency(cycle.total_disbursed || 0)}</p>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500 italic px-2">{t('communities.no_history')}</p>
+                            )}
+                        </div>
+                    </div>
                 )
             )}
 
@@ -673,6 +869,49 @@ export default function CommunityDetailsPage() {
                         className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 mt-4">
                         {contribSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Recording...</> : 'Confirm Contribution'}
                     </button>
+                </form>
+            </Modal>
+
+            {/* EMERGENCY SWAP MODAL */}
+            <Modal isOpen={showSwapModal} onClose={() => !swapSubmitting && setShowSwapModal(false)} title="Request Emergency Payout">
+                <form onSubmit={handleRequestSwap} className="space-y-4">
+                    <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
+                        <p className="text-red-800 text-sm font-bold flex items-center gap-2 mb-1">
+                            <Activity className="w-4 h-4" />
+                            Emergency Protocol
+                        </p>
+                        <p className="text-red-600/80 text-xs">
+                            This will request the next payout pot immediately. If approved, you will swap places with the current recipient and occupy the end of the queue later.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Emergency</label>
+                        <textarea
+                            required
+                            value={swapReason}
+                            onChange={e => setSwapReason(e.target.value)}
+                            placeholder="e.g. School fees, Medical bill, or Urgent investment..."
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-red-500/20 min-h-[120px] text-sm"
+                        />
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowSwapModal(false)}
+                            className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={swapSubmitting || !swapReason}
+                            className="flex-[2] py-4 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2"
+                        >
+                            {swapSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Request'}
+                        </button>
+                    </div>
                 </form>
             </Modal>
         </div>
