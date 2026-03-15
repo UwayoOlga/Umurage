@@ -14,25 +14,48 @@ function uuidv4() {
 // Get all users with optional search/role filter
 export const getAllUsers = (req: AuthRequest, res: Response) => {
     try {
+        const userId = req.user!.id;
         const { page = 1, limit = 50, search = '', role = '' } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
-        let query = 'SELECT id, phone, name, role, created_at, updated_at FROM users WHERE 1=1';
+        const adminUser = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(userId) as any;
+
+        let query = 'SELECT id, phone, name, role, admin_level, managed_location, created_at FROM users WHERE 1=1';
         const params: any[] = [];
 
+        // Scoping for non-national admins
+        if (adminUser.admin_level !== 'national' && adminUser.admin_level !== 'none') {
+            query = `
+                SELECT DISTINCT u.id, u.phone, u.name, u.role, u.admin_level, u.managed_location, u.created_at FROM users u
+                JOIN members m ON u.id = m.user_id
+                JOIN groups g ON m.group_id = g.id
+                WHERE 1=1
+            `;
+            if (adminUser.admin_level === 'sector') {
+                query += ' AND g.sector = ?';
+                params.push(adminUser.managed_location);
+            } else if (adminUser.admin_level === 'district') {
+                query += ' AND g.district = ?';
+                params.push(adminUser.managed_location);
+            } else if (adminUser.admin_level === 'province') {
+                query += ' AND g.province = ?';
+                params.push(adminUser.managed_location);
+            }
+        }
+
         if (search) {
-            query += ' AND (name LIKE ? OR phone LIKE ?)';
+            query += ' AND (u.name LIKE ? OR u.phone LIKE ?)';
             params.push(`%${search}%`, `%${search}%`);
         }
         if (role) {
-            query += ' AND role = ?';
+            query += ' AND u.role = ?';
             params.push(role);
         }
 
-        const countStmt = db.prepare(query.replace('SELECT id, phone, name, role, created_at, updated_at', 'SELECT COUNT(*) as count'));
-        const total = (countStmt.get(...params) as any).count;
+        const countQuery = `SELECT COUNT(*) as count FROM (${query}) AS sub`;
+        const total = (db.prepare(countQuery).get(...params) as any).count;
 
-        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        query += ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?';
         params.push(Number(limit), offset);
 
         const users = db.prepare(query).all(...params);
@@ -75,25 +98,32 @@ export const getUserStats = (_req: AuthRequest, res: Response) => {
 export const updateUserRole = (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { role } = req.body;
+        const { role, admin_level, managed_location } = req.body;
 
         const validRoles = ['member', 'admin', 'treasurer', 'secretary'];
-        if (!role || !validRoles.includes(role)) {
-            throw new AppError('Invalid role. Must be one of: member, admin, treasurer, secretary', 400);
+        if (role && !validRoles.includes(role)) {
+            throw new AppError('Invalid role', 400);
         }
 
         const userCheck = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
         if (!userCheck) throw new AppError('User not found', 404);
 
-        if (req.user?.id === id && role !== 'admin') {
+        if (req.user?.id === id && role && role !== 'admin') {
             throw new AppError('You cannot change your own admin role', 403);
         }
 
         const now = new Date().toISOString();
-        db.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').run(role, now, id);
+        db.prepare(`
+            UPDATE users 
+            SET role = COALESCE(?, role), 
+                admin_level = COALESCE(?, admin_level), 
+                managed_location = COALESCE(?, managed_location),
+                updated_at = ? 
+            WHERE id = ?
+        `).run(role, admin_level, managed_location, now, id);
 
-        const updated = db.prepare('SELECT id, phone, name, role, updated_at FROM users WHERE id = ?').get(id);
-        res.status(200).json({ success: true, message: 'User role updated successfully', data: updated });
+        const updated = db.prepare('SELECT id, phone, name, role, admin_level, managed_location, updated_at FROM users WHERE id = ?').get(id);
+        res.status(200).json({ success: true, message: 'User updated successfully', data: updated });
     } catch (error) {
         if (error instanceof AppError) {
             return res.status(error.statusCode).json({ success: false, message: error.message });
@@ -106,12 +136,16 @@ export const updateUserRole = (req: AuthRequest, res: Response) => {
 // Get all groups with stats
 export const getAllGroups = (req: AuthRequest, res: Response) => {
     try {
+        const userId = req.user!.id;
         const { page = 1, limit = 50, search = '' } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
 
+        const adminUser = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(userId) as any;
+
         let query = `
             SELECT
-                g.id, g.name, g.contribution_amount, g.contribution_frequency, g.model_type, g.created_at,
+                g.id, g.name, g.province, g.district, g.sector, g.contribution_amount, 
+                g.contribution_frequency, g.model_type, g.created_at,
                 u.name as admin_name,
                 COUNT(DISTINCT m.id) as member_count,
                 COALESCE(SUM(s.amount), 0) as total_savings,
@@ -125,20 +159,40 @@ export const getAllGroups = (req: AuthRequest, res: Response) => {
         `;
         const params: any[] = [];
 
+        // Scoping for non-national admins
+        if (adminUser.admin_level === 'sector') {
+            query += ' AND g.sector = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'district') {
+            query += ' AND g.district = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'province') {
+            query += ' AND g.province = ?';
+            params.push(adminUser.managed_location);
+        }
+
         if (search) {
             query += ' AND g.name LIKE ?';
             params.push(`%${search}%`);
         }
 
         query += ' GROUP BY g.id, u.name ORDER BY g.created_at DESC LIMIT ? OFFSET ?';
-        params.push(Number(limit), offset);
+        const queryParams = [...params, Number(limit), offset];
 
-        const groups = db.prepare(query).all(...params);
+        const groups = db.prepare(query).all(...queryParams);
 
         let countQuery = 'SELECT COUNT(*) as count FROM groups WHERE 1=1';
-        const countParams: any[] = [];
-        if (search) { countQuery += ' AND name LIKE ?'; countParams.push(`%${search}%`); }
-        const total = (db.prepare(countQuery).get(...countParams) as any).count;
+        if (adminUser.admin_level === 'sector') countQuery += ' AND sector = ?';
+        else if (adminUser.admin_level === 'district') countQuery += ' AND district = ?';
+        else if (adminUser.admin_level === 'province') countQuery += ' AND province = ?';
+
+        if (search) countQuery += ' AND name LIKE ?';
+
+        const countParams = [...params];
+        if (search) countParams.push(`%${search}%`);
+
+        const totalResult = db.prepare(countQuery).get(...countParams) as any;
+        const total = totalResult ? totalResult.count : 0;
 
         res.status(200).json({
             success: true,
@@ -183,35 +237,62 @@ export const getGroupDetails = (req: AuthRequest, res: Response) => {
 };
 
 // Get system analytics
-export const getSystemAnalytics = (_req: AuthRequest, res: Response) => {
+export const getSystemAnalytics = (req: AuthRequest, res: Response) => {
     try {
+        const userId = req.user!.id;
+        const adminUser = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(userId) as any;
+
+        let scopeClause = '';
+        const params: any[] = [];
+
+        if (adminUser.admin_level === 'sector') {
+            scopeClause = 'WHERE sector = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'district') {
+            scopeClause = 'WHERE district = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'province') {
+            scopeClause = 'WHERE province = ?';
+            params.push(adminUser.managed_location);
+        }
+
+        // Overall stats with dynamic scoping
         const overall = db.prepare(`
             SELECT
-                (SELECT COUNT(*) FROM users) as total_users,
-                (SELECT COUNT(*) FROM groups) as total_groups,
-                (SELECT COALESCE(SUM(amount), 0) FROM savings) as total_savings,
-                (SELECT COALESCE(SUM(amount), 0) FROM loans WHERE status IN ('approved', 'disbursed')) as total_loans,
-                (SELECT COUNT(*) FROM members WHERE status = 'active') as active_members,
-                (SELECT COUNT(*) FROM loans WHERE status = 'disbursed') as active_loan_count
-        `).get();
+                (SELECT COUNT(DISTINCT m.user_id) FROM members m JOIN groups g ON m.group_id = g.id ${scopeClause}) as total_users,
+                (SELECT COUNT(*) FROM groups ${scopeClause}) as total_groups,
+                (SELECT COALESCE(SUM(s.amount), 0) FROM savings s JOIN members m ON s.member_id = m.id JOIN groups g ON m.group_id = g.id ${scopeClause}) as total_savings,
+                (SELECT COALESCE(SUM(l.amount), 0) FROM loans l JOIN members m ON l.member_id = m.id JOIN groups g ON m.group_id = g.id WHERE l.status IN ('approved', 'disbursed') ${scopeClause ? 'AND ' + scopeClause.replace('WHERE', '') : ''}) as total_loans,
+                (SELECT COUNT(*) FROM members m JOIN groups g ON m.group_id = g.id WHERE m.status = 'active' ${scopeClause ? 'AND ' + scopeClause.replace('WHERE', '') : ''}) as active_members,
+                (SELECT COUNT(*) FROM loans l JOIN members m ON l.member_id = m.id JOIN groups g ON m.group_id = g.id WHERE l.status = 'disbursed' ${scopeClause ? 'AND ' + scopeClause.replace('WHERE', '') : ''}) as active_loan_count
+        `).get(...Array(6).fill(params).flat());
 
         const recentActivity = db.prepare(`
             SELECT
-                SUM(CASE WHEN created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) as new_users_30d,
-                SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_users_7d
-            FROM users
-        `).get();
+                SUM(CASE WHEN u.created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) as new_users_30d,
+                SUM(CASE WHEN u.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_users_7d
+            FROM users u
+            ${adminUser.admin_level !== 'national' && adminUser.admin_level !== 'none' ? 'JOIN members m ON u.id = m.user_id JOIN groups g ON m.group_id = g.id ' + scopeClause : ''}
+        `).get(...params);
 
         const savingsTrend = db.prepare(`
-            SELECT strftime('%Y-%m', date) as month, SUM(amount) as total
-            FROM savings WHERE date >= date('now', '-6 months')
-            GROUP BY strftime('%Y-%m', date) ORDER BY month DESC
-        `).all();
+            SELECT strftime('%Y-%m', s.date) as month, SUM(s.amount) as total
+            FROM savings s
+            JOIN members m ON s.member_id = m.id
+            JOIN groups g ON m.group_id = g.id
+            ${scopeClause}
+            AND s.date >= date('now', '-6 months')
+            GROUP BY strftime('%Y-%m', s.date) ORDER BY month DESC
+        `).all(...params);
 
         const loanStats = db.prepare(`
-            SELECT status, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount
-            FROM loans GROUP BY status
-        `).all();
+            SELECT l.status, COUNT(*) as count, COALESCE(SUM(l.amount), 0) as total_amount
+            FROM loans l
+            JOIN members m ON l.member_id = m.id
+            JOIN groups g ON m.group_id = g.id
+            ${scopeClause}
+            GROUP BY l.status
+        `).all(...params);
 
         res.status(200).json({
             success: true,

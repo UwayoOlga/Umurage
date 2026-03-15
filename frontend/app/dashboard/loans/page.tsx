@@ -43,18 +43,23 @@ export default function LoansPage() {
 
     // Approval state
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [showApproveModal, setShowApproveModal] = useState(false);
+    const [reviewLoan, setReviewLoan] = useState<any>(null);
+    const [adjAmount, setAdjAmount] = useState("");
+    const [adjInterest, setAdjInterest] = useState("5.0");
+    const [adjDueDate, setAdjDueDate] = useState("");
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const results = await Promise.allSettled([
                 loanService.getMyLoans(),
-                // dashboardService.getSummary(), // Removed because it doesn't exist
+                dashboardService.getSummary(),
                 groupService.getMyGroups(),
                 loanService.getPendingLoans(),
             ]);
 
-            const [loansRes, groupsRes, pendingRes] = results;
+            const [loansRes, summaryRes, groupsRes, pendingRes] = results;
 
             // Check if any request failed due to token issues
             for (const res of results) {
@@ -77,6 +82,9 @@ export default function LoansPage() {
                     .reduce((sum: number, loan: any) => sum + Number(loan.amount || 0), 0);
 
                 setSummary({ activeLoans: activeSum });
+            }
+            if (summaryRes.status === 'fulfilled') {
+                setSummary(summaryRes.value.data);
             }
             if (groupsRes.status === 'fulfilled') {
                 setGroups(groupsRes.value.data);
@@ -118,10 +126,24 @@ export default function LoansPage() {
         }
     };
 
-    const handleApprove = async (loanId: string) => {
-        setActionLoading(loanId);
+    const handleApprove = (loan: any) => {
+        setReviewLoan(loan);
+        setAdjAmount(loan.amount.toString());
+        setAdjInterest(loan.interest_rate?.toString() || "5.0");
+        setAdjDueDate(loan.due_date ? loan.due_date.split('T')[0] : "");
+        setShowApproveModal(true);
+    };
+
+    const handleFinalApprove = async () => {
+        if (!reviewLoan) return;
+        setActionLoading(reviewLoan.id);
         try {
-            await loanService.approveLoan(loanId);
+            await loanService.approveLoan(reviewLoan.id, {
+                amount: parseFloat(adjAmount),
+                interestRate: parseFloat(adjInterest),
+                dueDate: adjDueDate
+            });
+            setShowApproveModal(false);
             fetchData();
         } catch (error: any) {
             alert(error.message || "Failed to approve loan");
@@ -371,16 +393,16 @@ export default function LoansPage() {
                     {/* Sidebar */}
                     <div className="space-y-6">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white text-center">
-                            <h3 className="font-bold text-lg mb-2">Need Cash Fast?</h3>
-                            <p className="text-blue-100 text-sm mb-4">Apply in seconds. Your Treasurer reviews the request.</p>
+                            <h3 className="font-bold text-lg mb-2">{t('loans.need_cash')}</h3>
+                            <p className="text-blue-100 text-sm mb-4">{t('loans.apply_desc')}</p>
                             <button onClick={() => setShowModal(true)} className="w-full py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-semibold transition-colors border border-white/20">
-                                Apply Now
+                                {t('loans.req_loan')}
                             </button>
                         </div>
                         <Card className="p-5">
-                            <h3 className="font-bold text-slate-900 mb-3 text-sm">Loan Rules</h3>
+                            <h3 className="font-bold text-slate-900 mb-3 text-sm">{t('loans.rules_title')}</h3>
                             <ul className="space-y-3 text-sm text-slate-600">
-                                {['Max interest rate: 5% per month', 'Repayment period: Up to 6 months', 'Requires active group membership', 'Approved by group Treasurer'].map(rule => (
+                                {[t('loans.rule_1'), t('loans.rule_2'), t('loans.rule_3'), t('loans.rule_4')].map(rule => (
                                     <li key={rule} className="flex gap-2">
                                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                                         <span>{rule}</span>
@@ -397,18 +419,18 @@ export default function LoansPage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
                         <Shield className="w-5 h-5 shrink-0" />
-                        <p>As a <strong>Treasurer or Chairperson</strong>, you can approve or reject these loan applications on behalf of your community.</p>
+                        <p>{t('loans.treasurer_notice')}</p>
                     </div>
 
                     {loading ? (
                         <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2">
-                            <Loader2 className="w-5 h-5 animate-spin" /> Loading pending applications...
+                            <Loader2 className="w-5 h-5 animate-spin" /> {t('common.loading')}
                         </div>
                     ) : pendingLoans.length === 0 ? (
                         <Card className="p-16 text-center border-dashed border-2">
                             <CheckCircle2 className="w-14 h-14 mx-auto text-emerald-300 mb-4" />
-                            <p className="font-bold text-slate-800 text-lg">All Clear!</p>
-                            <p className="text-slate-500 text-sm mt-1">No pending loan applications in your communities.</p>
+                            <p className="font-bold text-slate-800 text-lg">{t('loans.all_clear')}</p>
+                            <p className="text-slate-500 text-sm mt-1">{t('loans.no_pending')}</p>
                         </Card>
                     ) : (
                         pendingLoans.map((loan) => (
@@ -423,9 +445,9 @@ export default function LoansPage() {
                                             <p className="font-bold text-slate-900 text-base">{loan.applicant_name}</p>
                                             <p className="text-sm text-slate-500">{loan.applicant_phone} · {loan.group_name}</p>
                                             <p className="text-sm text-slate-600 mt-2 font-medium">
-                                                Purpose: <span className="text-slate-800">{loan.purpose || 'Not specified'}</span>
+                                                {t('loans.purpose')}: <span className="text-slate-800">{loan.purpose || t('loans.not_specified')}</span>
                                             </p>
-                                            <p className="text-xs text-slate-400 mt-1">Applied {new Date(loan.created_at).toLocaleDateString()}</p>
+                                            <p className="text-xs text-slate-400 mt-1">{t('loans.applied_on')} {new Date(loan.created_at).toLocaleDateString()}</p>
                                         </div>
                                     </div>
 
@@ -454,15 +476,15 @@ export default function LoansPage() {
                                                 className="px-4 py-2 border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                                             >
                                                 {actionLoading === loan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                                                Reject
+                                                {t('loans.reject')}
                                             </button>
                                             <button
-                                                onClick={() => handleApprove(loan.id)}
+                                                onClick={() => handleApprove(loan)}
                                                 disabled={actionLoading === loan.id}
                                                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 disabled:opacity-50"
                                             >
-                                                {actionLoading === loan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                                Approve & Disburse
+                                                {actionLoading === loan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                                                {t('loans.approve')}
                                             </button>
                                         </div>
                                     </div>
@@ -574,6 +596,66 @@ export default function LoansPage() {
                         </button>
                     </form>
                 )}
+            </Modal>
+
+            {/* Approval Review Modal */}
+            <Modal isOpen={showApproveModal} onClose={() => !actionLoading && setShowApproveModal(false)} title={t('loans.review_modal')}>
+                <div className="space-y-6">
+                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">{t('loans.applicant')}</p>
+                                <p className="font-bold text-slate-900">{reviewLoan?.applicant_name}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">{t('loans.credit_score')}</p>
+                                <p className="text-xl font-black text-emerald-700">{reviewLoan?.ai_score}%</p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 italic">" {reviewLoan?.purpose} "</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('loans.approved_amount')}</label>
+                                <input type="number" value={adjAmount} onChange={e => setAdjAmount(e.target.value)}
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('loans.interest_rate_adj')}</label>
+                                <input type="number" step="0.1" value={adjInterest} onChange={e => setAdjInterest(e.target.value)}
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 outline-none" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t('loans.due_date_adj')}</label>
+                            <input type="date" value={adjDueDate} onChange={e => setAdjDueDate(e.target.value)}
+                                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none" />
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900 rounded-xl text-white">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-slate-400 text-xs font-medium">{t('loans.final_total')}</span>
+                            <span className="font-bold text-emerald-400">
+                                {formatCurrency(parseFloat(adjAmount || "0") * (1 + parseFloat(adjInterest || "0") / 100))}
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">{t('loans.ledger_note')}</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button onClick={() => setShowApproveModal(false)} className="flex-1 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                            {t('common.cancel')}
+                        </button>
+                        <button onClick={handleFinalApprove} disabled={!!actionLoading}
+                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2">
+                            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            {t('common.confirm')}
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );

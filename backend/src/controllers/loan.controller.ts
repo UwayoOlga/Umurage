@@ -2,6 +2,7 @@ import { Response } from 'express';
 import db from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { saccoService } from '../services/saccoService';
 
 export const getUserLoans = async (req: AuthRequest, res: Response) => {
     try {
@@ -65,11 +66,16 @@ export const getPendingLoansForLeader = async (req: AuthRequest, res: Response) 
 export const approveLoan = async (req: AuthRequest, res: Response) => {
     try {
         const { loanId } = req.params;
+        const { amount, interestRate, dueDate } = req.body;
         const userId = req.user!.id;
 
         const loan = db.prepare(`
-            SELECT l.*, m.group_id, m.id as member_id
-            FROM loans l JOIN members m ON l.member_id = m.id
+            SELECT l.*, m.group_id, m.id as member_id, u.phone as member_phone,
+                   g.sacco_account_number, g.sacco_id
+            FROM loans l 
+            JOIN members m ON l.member_id = m.id
+            JOIN users u ON m.user_id = u.id
+            JOIN groups g ON m.group_id = g.id
             WHERE l.id = ?
         `).get(loanId) as any;
 
@@ -86,22 +92,65 @@ export const approveLoan = async (req: AuthRequest, res: Response) => {
         }
 
         const now = new Date().toISOString();
+        const finalAmount = amount || loan.amount;
+
+        let saccoNotes = 'Disbursed via App Balance';
+        let statusToSet = 'disbursed';
+
+        // --- SACCO Automated Disbursement Handshake ---
+        if (loan.sacco_account_number) {
+            console.log(`[Loan Disbursement] Initiating SACCO API transfer for loan ${loanId}`);
+
+            // 1. Verify SACCO account balance first
+            const balance = await saccoService.getBalance(loan.sacco_account_number);
+            if (balance < finalAmount) {
+                throw new AppError(`Insufficient SACCO balance: Group account only has ${balance} RWF.`, 400);
+            }
+
+            // 2. Trigger automated disbursement to the member's MoMo wallet
+            const disbursement = await saccoService.disburseToMobileMoney(
+                loan.sacco_account_number,
+                loan.member_phone,
+                finalAmount,
+                loanId as string
+            );
+
+            if (!disbursement.success) {
+                throw new AppError(`SACCO Disbursement Failed: ${disbursement.error}`, 502);
+            }
+
+            saccoNotes = `Automated SACCO Disbursement. TxID: ${disbursement.transactionId}`;
+            console.log(`✅ ${saccoNotes}`);
+        }
 
         // Use a transaction: approve loan + create disbursement transaction record
         db.transaction(() => {
             db.prepare(`
-                UPDATE loans SET status = 'approved', approved_by = ?, approved_at = ?, 
-                disbursed_at = ?, updated_at = ? WHERE id = ?
-            `).run(userId, now, now, now, loanId);
+                UPDATE loans SET 
+                    status = ?, 
+                    approved_by = ?, 
+                    approved_at = ?, 
+                    disbursed_at = ?, 
+                    amount = ?,
+                    interest_rate = COALESCE(?, interest_rate),
+                    due_date = COALESCE(?, due_date),
+                    updated_at = ? 
+                WHERE id = ?
+            `).run(statusToSet, userId, now, now, finalAmount, interestRate, dueDate, now, loanId);
 
             // Create a disbursement transaction for the audit ledger
             db.prepare(`
                 INSERT INTO transactions (group_id, type, amount, to_member_id, reference_id, reference_type, status, notes)
                 VALUES (?, 'loan_disbursement', ?, ?, ?, 'loan', 'completed', ?)
-            `).run(loan.group_id, loan.amount, loan.member_id, loanId, `Loan disbursed to member. Approved by leader.`);
+            `).run(loan.group_id, finalAmount, loan.member_id, loanId, saccoNotes);
         })();
 
-        res.status(200).json({ success: true, message: 'Loan approved and disbursed successfully.' });
+        res.status(200).json({
+            success: true,
+            message: loan.sacco_account_number
+                ? 'Loan approved and funds disbursed directly from SACCO to member MoMo wallet.'
+                : 'Loan approved and marked as disbursed manually.'
+        });
     } catch (error) {
         if (error instanceof AppError) return res.status(error.statusCode).json({ success: false, message: error.message });
         console.error('approveLoan error:', error);

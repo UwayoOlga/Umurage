@@ -42,16 +42,16 @@ class AdminService {
         return response.json();
     }
 
-    async updateUserRole(userId: string, role: string) {
+    async updateUserSettings(userId: string, data: { role?: string, admin_level?: string, managed_location?: string }) {
         const response = await fetch(`${API_URL}/admin/users/${userId}/role`, {
             method: 'PATCH',
             headers: this.getAuthHeaders(),
-            body: JSON.stringify({ role }),
+            body: JSON.stringify(data),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.message || 'Failed to update user role');
+            throw new Error(error.message || 'Failed to update user settings');
         }
 
         return response.json();

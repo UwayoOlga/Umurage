@@ -26,6 +26,8 @@ db.exec(`
         name TEXT NOT NULL,
         national_id TEXT UNIQUE,
         role TEXT DEFAULT 'member' CHECK (role IN ('member', 'admin', 'treasurer', 'secretary')),
+        admin_level TEXT DEFAULT 'none' CHECK (admin_level IN ('none', 'national', 'province', 'district', 'sector')),
+        managed_location TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -43,11 +45,15 @@ db.exec(`
         rca_number TEXT UNIQUE,
         description TEXT,
         admin_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        province TEXT,
+        district TEXT,
+        sector TEXT,
         contribution_amount REAL,
         contribution_frequency TEXT CHECK (contribution_frequency IN ('weekly', 'biweekly', 'monthly')),
         model_type TEXT CHECK (model_type IN ('ROSCA', 'ASCA')),
         sacco_account_number TEXT,
         sacco_id TEXT,
+        penalty_amount REAL DEFAULT 500,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -172,6 +178,11 @@ try { db.exec(`ALTER TABLE groups ADD COLUMN rca_number TEXT UNIQUE;`); } catch 
 try { db.exec(`ALTER TABLE groups ADD COLUMN description TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE members ADD COLUMN rotation_order INTEGER;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN penalty_amount REAL DEFAULT 500;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN admin_level TEXT DEFAULT 'none';`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN managed_location TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN province TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN district TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE groups ADD COLUMN sector TEXT;`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

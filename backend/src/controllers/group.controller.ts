@@ -2,18 +2,32 @@ import { Response } from 'express';
 import db from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { saccoService } from '../services/saccoService';
 
 export const createGroup = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user!.id;
-        const { name, rcaNumber, description, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId, penaltyAmount = 500 } = req.body;
+        const {
+            name, rcaNumber, description, contributionAmount, contributionFrequency, modelType,
+            saccoAccountNumber, saccoId, penaltyAmount = 500,
+            province, district, sector
+        } = req.body;
 
         if (!name || !rcaNumber || !contributionAmount || !contributionFrequency || !modelType) {
             throw new AppError('Name, RCA Number, contribution amount, frequency, and model type are required', 400);
         }
 
+        // SACCO Account Verification Link
+        if (saccoAccountNumber && saccoId) {
+            const verification = await saccoService.verifyAccount(saccoAccountNumber, saccoId);
+            if (!verification.success) {
+                throw new AppError(`SACCO Verification Failed: ${verification.error}`, 400);
+            }
+            console.log(`✅ SACCO Account Verified: ${verification.accountName}`);
+        }
+
         // Enforce global admin Check for creating official RCA communities
-        const currentUser = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+        const currentUser = db.prepare('SELECT role, admin_level FROM users WHERE id = ?').get(userId) as any;
         if (!currentUser || currentUser.role !== 'admin') {
             throw new AppError('Only system administrators can register an official RCA Community.', 403);
         }
@@ -21,11 +35,19 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
         // 1. Create the group
         const executeTransaction = db.transaction(() => {
             const groupStmt = db.prepare(`
-                INSERT INTO groups (name, rca_number, description, admin_id, contribution_amount, contribution_frequency, model_type, sacco_account_number, sacco_id, penalty_amount)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO groups (
+                    name, rca_number, description, admin_id, contribution_amount, 
+                    contribution_frequency, model_type, sacco_account_number, 
+                    sacco_id, penalty_amount, province, district, sector
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
             `);
-            const { id: groupId } = groupStmt.get(name, rcaNumber, description || '', userId, contributionAmount, contributionFrequency, modelType, saccoAccountNumber, saccoId, penaltyAmount) as any;
+            const { id: groupId } = groupStmt.get(
+                name, rcaNumber, description || '', userId, contributionAmount,
+                contributionFrequency, modelType, saccoAccountNumber, saccoId,
+                penaltyAmount, province, district, sector
+            ) as any;
 
             // 2. Add creator as the first member (admin role)
             const memberStmt = db.prepare(`

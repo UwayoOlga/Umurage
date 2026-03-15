@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { startRotation, getRotationInfo, disbursePayout, requestEmergencySwap, getPendingRequests, handleSwapRequest, getRotationHistory } from '../controllers/rotation.controller';
+import { startRotation, getRotationInfo, disbursePayout, requestEmergencySwap, getPendingRequests, handleSwapRequest, getRotationHistory, reorderRotationQueue } from '../controllers/rotation.controller';
 
 const router = Router();
 
@@ -11,6 +11,9 @@ router.post('/groups/:groupId/start', startRotation);
 
 // Get current active rotation info for a group
 router.get('/groups/:groupId', getRotationInfo);
+
+// Reorder queue
+router.patch('/groups/:groupId/queue/reorder', reorderRotationQueue);
 
 // Disburse payout and advance turn
 router.post('/groups/:groupId/disburse', disbursePayout);

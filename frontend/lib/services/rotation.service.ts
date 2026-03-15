@@ -29,6 +29,17 @@ export const rotationService = {
         return json;
     },
 
+    reorderQueue: async (groupId: string, memberId: string, direction: 'up' | 'down') => {
+        const response = await fetch(`${API_URL}/rotations/groups/${groupId}/queue/reorder`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ memberId, direction }),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.error || json.message || 'Failed to update queue');
+        return json;
+    },
+
     disbursePayout: async (groupId: string) => {
         const response = await fetch(`${API_URL}/rotations/groups/${groupId}/disburse`, {
             method: 'POST',

@@ -352,3 +352,51 @@ export const getRotationHistory = async (req: any, res: any) => {
     }
 };
 
+export const reorderRotationQueue = async (req: any, res: any) => {
+    try {
+        const { groupId } = req.params;
+        const { memberId, direction } = req.body;
+        const userId = req.user!.id;
+
+        const leaderCheck = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        if (!leaderCheck || !['admin', 'secretary'].includes(leaderCheck.role)) {
+            return res.status(403).json({ error: 'Only group admins or secretaries can reorder the queue' });
+        }
+
+        const rotation = db.prepare('SELECT * FROM rotations WHERE group_id = ? AND status = ?').get(groupId, 'active') as any;
+        if (!rotation) return res.status(400).json({ error: 'No active rotation cycle found' });
+
+        const currentMember = db.prepare('SELECT id, rotation_order FROM members WHERE id = ? AND group_id = ?').get(memberId, groupId) as any;
+        if (!currentMember) return res.status(404).json({ error: 'Member not found' });
+
+        const activeTurnMember = db.prepare('SELECT rotation_order FROM members WHERE id = ?').get(rotation.current_turn_member_id) as any;
+        const activeOrder = activeTurnMember ? activeTurnMember.rotation_order : 0;
+
+        if (currentMember.rotation_order <= activeOrder) {
+            return res.status(400).json({ error: 'Cannot reorder members whose turn has passed or is currently active' });
+        }
+
+        const swapOrder = direction === 'up' ? currentMember.rotation_order - 1 : currentMember.rotation_order + 1;
+
+        if (swapOrder <= activeOrder) {
+            return res.status(400).json({ error: 'Cannot move ahead of the active turn' });
+        }
+
+        const swapMember = db.prepare('SELECT id FROM members WHERE group_id = ? AND rotation_order = ?').get(groupId, swapOrder) as any;
+
+        if (!swapMember) {
+            return res.status(400).json({ error: `Cannot move ${direction}. Reached the end of the line.` });
+        }
+
+        const executeSwap = db.transaction(() => {
+            db.prepare('UPDATE members SET rotation_order = ? WHERE id = ?').run(swapOrder, currentMember.id);
+            db.prepare('UPDATE members SET rotation_order = ? WHERE id = ?').run(currentMember.rotation_order, swapMember.id);
+        });
+
+        executeSwap();
+        res.status(200).json({ message: 'Queue updated successfully' });
+    } catch (error) {
+        console.error('Reorder queue error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

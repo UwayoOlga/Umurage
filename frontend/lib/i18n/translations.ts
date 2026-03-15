@@ -137,13 +137,32 @@ export const translations = {
             repay: 'Repay Part',
             approve: 'Approve & Disburse',
             reject: 'Reject',
+            review_modal: 'Final Loan Review',
+            applicant: 'Applicant',
+            approved_amount: 'Approved Amount',
+            interest_rate_adj: 'Interest Rate (%)',
+            due_date_adj: 'Due Date',
+            final_total: 'Final Repayment total',
+            ledger_note: 'Includes interest. This amount will be automatically recorded in the ledger.',
             status: {
                 approved: 'Approved',
                 disbursed: 'Disbursed',
                 pending: 'Pending Review',
                 rejected: 'Rejected',
                 repaid: 'Repaid'
-            }
+            },
+            treasurer_notice: 'As a Treasurer or Chairperson, you can approve or reject these loan applications on behalf of your community.',
+            all_clear: 'All Clear!',
+            no_pending: 'No pending loan applications in your communities.',
+            applied_on: 'Applied',
+            not_specified: 'Not specified',
+            need_cash: 'Need Cash Fast?',
+            apply_desc: 'Apply in seconds. Your Treasurer reviews the request.',
+            rules_title: 'Loan Rules',
+            rule_1: 'Max interest rate: 5% per month',
+            rule_2: 'Repayment period: Up to 6 months',
+            rule_3: 'Requires active group membership',
+            rule_4: 'Approved by group Treasurer'
         }
     },
     rw: {
@@ -282,13 +301,32 @@ export const translations = {
             repay: 'Ishyura igice',
             approve: 'Emeza & Tanga',
             reject: 'REKA',
+            review_modal: 'Gusuzuma Inguzanyo bwa Nyuma',
+            applicant: 'Uwasabye',
+            approved_amount: 'Amafaranga Wemerewe',
+            interest_rate_adj: 'Inyungu (%)',
+            due_date_adj: 'Itariki yo kwishyura',
+            final_total: 'Ayishyuwe yose hamwe',
+            ledger_note: 'Harimo n\'inyungu. Aya mafaranga azahita yandikwa mu bitabo.',
             status: {
                 approved: 'Byemejwe',
                 disbursed: 'Byatanzwe',
                 pending: 'Bitegereje',
                 rejected: 'Byanzwe',
                 repaid: 'Byishyuwe'
-            }
+            },
+            treasurer_notice: 'Nka komite y\'ubutunzi cyangwa Umuyobozi, ushobora kwemeza cyangwa kwanga izi nguzanyo mu izina ry\'umuryango.',
+            all_clear: 'Byose ni sawa!',
+            no_pending: 'Nta nguzanyo nshya zitegereje kwemezwa mu matsinda yawe.',
+            applied_on: 'Yashyizweho',
+            not_specified: 'Ntabwo bishojwe',
+            need_cash: 'Ukeneye amafaranga byihuse?',
+            apply_desc: 'Saba mu masegonda bake. Umubitsi wanyu azagenzura ubusabe bwawe.',
+            rules_title: 'Amategeko y\'inguzanyo',
+            rule_1: 'Inyungu ntabwo irenga 5% ku kwezi',
+            rule_2: 'Igihe cyo kwishyura: Hagera ku mezi 6',
+            rule_3: 'Bigenerwa abanyamuryango bakonze',
+            rule_4: 'Byemezwa n\'Umubitsi w\'itsinda'
         }
     },
     fr: {
@@ -391,6 +429,13 @@ export const translations = {
             repay: 'Rembourser une partie',
             approve: 'Approuver & Décaisser',
             reject: 'Rejeter',
+            review_modal: 'Examen final du prêt',
+            applicant: 'Demandeur',
+            approved_amount: 'Montant approuvé',
+            interest_rate_adj: 'Taux d\'intérêt (%)',
+            due_date_adj: 'Date d\'échéance',
+            final_total: 'Total du remboursement final',
+            ledger_note: 'Inclut les intérêts. Ce montant sera automatiquement enregistré dans le grand livre.',
             status: {
                 approved: 'Approuvé',
                 disbursed: 'Décaissé',

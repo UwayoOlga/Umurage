@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     ArrowLeft, Users, PiggyBank, Play, Clock, CheckCircle2,
-    Crown, BookOpen, Wallet, User, ChevronDown, Shield, Loader2, Plus
+    Crown, BookOpen, Wallet, User, ChevronDown, Shield, Loader2, Plus, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
@@ -212,6 +212,15 @@ export default function CommunityDetailsPage() {
             fetchData();
         } catch (error: any) {
             alert(error.message || 'Failed to process request');
+        }
+    };
+
+    const handleReorderQueue = async (memberId: string, direction: 'up' | 'down') => {
+        try {
+            await rotationService.reorderQueue(groupId, memberId, direction);
+            fetchData();
+        } catch (error: any) {
+            alert(error.message || 'Failed to reorder queue');
         }
     };
 
@@ -476,6 +485,17 @@ export default function CommunityDetailsPage() {
                                                     isCurrent ? 'bg-purple-200 text-purple-700' : isPast ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400')}>
                                                     {isCurrent ? 'Receiving' : isPast ? 'Done' : 'Waiting'}
                                                 </span>
+
+                                                {(isChairperson || isSecretary) && !isPast && !isCurrent && (
+                                                    <div className="flex flex-col gap-0.5 ml-2 border-l border-slate-200 pl-2">
+                                                        <button disabled={m.rotation_order - 1 <= currentOrder} onClick={() => handleReorderQueue(m.member_id, 'up')} className="p-0.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors">
+                                                            <ArrowUp className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button disabled={m.rotation_order >= rotation.queue.length} onClick={() => handleReorderQueue(m.member_id, 'down')} className="p-0.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors">
+                                                            <ArrowDown className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );

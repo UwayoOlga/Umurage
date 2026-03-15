@@ -31,10 +31,11 @@ class LoanService {
         return response.json();
     }
 
-    async approveLoan(loanId: string) {
+    async approveLoan(loanId: string, data?: { amount?: number; interestRate?: number; dueDate?: string }) {
         const response = await fetch(`${API_URL}/loans/${loanId}/approve`, {
             method: 'PATCH',
             headers: this.getAuthHeaders(),
+            body: data ? JSON.stringify(data) : undefined,
         });
         if (!response.ok) {
             const error = await response.json();

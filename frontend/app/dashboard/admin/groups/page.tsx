@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminService } from '@/lib/services/admin.service';
 import { Card } from '@/components/ui/card';
-import { Layers, Search, Users, PiggyBank } from 'lucide-react';
+import { Layers, Search, Users, PiggyBank, MapPin } from 'lucide-react';
 
 interface Group {
     id: string;
     name: string;
+    province: string;
+    district: string;
+    sector: string;
     contribution_amount: number;
     contribution_frequency: string;
     model_type: string;
@@ -55,9 +58,17 @@ export default function GroupsOverview() {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">Groups Overview</h1>
-                <p className="text-slate-500 text-sm mt-1">Monitor all savings groups in the system</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Groups Overview</h1>
+                    <p className="text-slate-500 text-sm mt-1">Monitor all savings groups in the system</p>
+                </div>
+                <button
+                    onClick={() => router.push('/dashboard/admin/groups/new')}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-2 transform active:scale-95 transition-all shadow-sm"
+                >
+                    Register New Community
+                </button>
             </div>
 
             {/* Search */}
@@ -100,9 +111,15 @@ export default function GroupsOverview() {
                             </div>
 
                             <h3 className="font-bold text-lg text-slate-900 mb-1">{group.name}</h3>
-                            <p className="text-sm text-slate-500 mb-4">
-                                Admin: {group.admin_name || 'N/A'}
-                            </p>
+                            <div className="flex flex-col gap-1 mb-4">
+                                <p className="text-sm text-slate-500">
+                                    Admin: {group.admin_name || 'N/A'}
+                                </p>
+                                <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {group.sector}, {group.district}
+                                </p>
+                            </div>
 
                             <div className="space-y-2 border-t border-slate-100 pt-4">
                                 <div className="flex items-center justify-between text-sm">
