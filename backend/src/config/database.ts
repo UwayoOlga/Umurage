@@ -170,6 +170,16 @@ db.exec(`
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS sacco_staff (
+        staff_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        admin_level TEXT NOT NULL CHECK (admin_level IN ('national', 'province', 'district', 'sector')),
+        managed_location TEXT,
+        claimed_by TEXT REFERENCES users(id),
+        claimed_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
 `);
 
 // Run migrations gracefully for existing DBs
@@ -183,6 +193,11 @@ try { db.exec(`ALTER TABLE users ADD COLUMN managed_location TEXT;`); } catch (e
 try { db.exec(`ALTER TABLE groups ADD COLUMN province TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN district TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE groups ADD COLUMN sector TEXT;`); } catch (e) { }
+// Admin provisioning flow columns
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN setup_token TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN is_activated INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN created_by TEXT;`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

@@ -176,7 +176,7 @@ export const logout = async (req: Request, res: Response) => {
 // Get current user profile
 export const getMe = async (req: AuthRequest, res: Response) => {
     try {
-        const user = db.prepare('SELECT id, phone, name, role, created_at FROM users WHERE id = ?').get(req.user!.id) as any;
+        const user = db.prepare('SELECT id, phone, name, role, admin_level, managed_location, created_at FROM users WHERE id = ?').get(req.user!.id) as any;
         if (!user) throw new AppError('User not found', 404);
         res.status(200).json({ success: true, data: { user } });
     } catch (error) {
@@ -184,5 +184,133 @@ export const getMe = async (req: AuthRequest, res: Response) => {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
         res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// Claim a SACCO/RCA Staff ID → auto-assigns admin_level and managed_location
+export const claimStaffId = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const { staffId } = req.body;
+
+        if (!staffId) {
+            throw new AppError('Staff ID is required', 400);
+        }
+
+        // 1. Check if this staff ID exists in the official table
+        const staff = db.prepare('SELECT * FROM sacco_staff WHERE staff_id = ?').get(staffId.trim().toUpperCase()) as any;
+        if (!staff) {
+            throw new AppError('Invalid Staff ID. This credential does not exist in our official registry.', 404);
+        }
+
+        // 2. Check if it's already been claimed by someone else
+        if (staff.claimed_by && staff.claimed_by !== userId) {
+            throw new AppError('This Staff ID has already been claimed by another account. Contact RCA if this is an error.', 409);
+        }
+
+        // 3. Check if the current user already has a staff ID claimed
+        const alreadyClaimed = db.prepare('SELECT staff_id FROM sacco_staff WHERE claimed_by = ?').get(userId) as any;
+        if (alreadyClaimed && alreadyClaimed.staff_id !== staffId.trim().toUpperCase()) {
+            throw new AppError('Your account is already linked to a staff credential.', 409);
+        }
+
+        const now = new Date().toISOString();
+
+        // 4. Mark staff ID as claimed & upgrade user's access level
+        db.transaction(() => {
+            db.prepare('UPDATE sacco_staff SET claimed_by = ?, claimed_at = ? WHERE staff_id = ?')
+                .run(userId, now, staff.staff_id);
+
+            db.prepare('UPDATE users SET admin_level = ?, managed_location = ?, role = ?, updated_at = ? WHERE id = ?')
+                .run(staff.admin_level, staff.managed_location, 'admin', now, userId);
+        })();
+
+        res.status(200).json({
+            success: true,
+            message: `✅ Staff credential verified! Your account now has ${staff.admin_level}-level access${staff.managed_location ? ` for ${staff.managed_location}` : ''}.`,
+            data: {
+                admin_level: staff.admin_level,
+                managed_location: staff.managed_location
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
+        console.error('claimStaffId error:', error);
+        res.status(500).json({ success: false, message: 'Server error verifying staff credentials' });
+    }
+};
+
+// Setup account with a token (for admin provisioning — no login required)
+export const setupAccount = async (req: Request, res: Response) => {
+    try {
+        const { setupToken, password } = req.body;
+
+        if (!setupToken || !password) {
+            throw new AppError('Setup token and password are required.', 400);
+        }
+
+        if (password.length < 6) {
+            throw new AppError('Password must be at least 6 characters.', 400);
+        }
+
+        // Find the user with this token
+        const user = db.prepare('SELECT * FROM users WHERE setup_token = ?').get(setupToken.trim().toUpperCase()) as any;
+        if (!user) {
+            throw new AppError('Invalid or expired setup token. Please contact your system administrator.', 404);
+        }
+
+        if (user.is_activated === 1 && user.password_hash !== 'PENDING') {
+            throw new AppError('This account has already been activated.', 409);
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const now = new Date().toISOString();
+
+        // Activate the account: set password, clear token, mark as activated
+        db.prepare(`
+            UPDATE users SET password_hash = ?, setup_token = NULL, is_activated = 1, updated_at = ? WHERE id = ?
+        `).run(hashedPassword, now, user.id);
+
+        // Generate tokens so they're logged in right away
+        const accessToken = jwt.sign(
+            { id: user.id, phone: user.phone, role: user.role },
+            process.env.JWT_SECRET as string,
+            { expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any }
+        );
+
+        const refreshTokenVal = jwt.sign(
+            { id: user.id },
+            process.env.JWT_REFRESH_SECRET as string,
+            { expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any }
+        );
+
+        db.prepare('DELETE FROM refresh_tokens WHERE user_id = ?').run(user.id);
+        db.prepare('INSERT INTO refresh_tokens (user_id, token, created_at) VALUES (?, ?, ?)').run(user.id, refreshTokenVal, now);
+
+        res.status(200).json({
+            success: true,
+            message: `Welcome, ${user.name}! Your account is now active.`,
+            data: {
+                user: {
+                    id: user.id,
+                    phone: user.phone,
+                    name: user.name,
+                    role: user.role,
+                    admin_level: user.admin_level,
+                    managed_location: user.managed_location
+                },
+                accessToken,
+                refreshToken: refreshTokenVal
+            }
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
+        console.error('setupAccount error:', error);
+        res.status(500).json({ success: false, message: 'Server error setting up account.' });
     }
 };

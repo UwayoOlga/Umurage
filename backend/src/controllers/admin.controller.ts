@@ -133,6 +133,75 @@ export const updateUserRole = (req: AuthRequest, res: Response) => {
     }
 };
 
+// Generate a readable setup token like SETUP-A7K2-XP9Q
+function generateSetupToken(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/1/I for readability
+    const block = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `SETUP-${block()}-${block()}`;
+}
+
+// Create a new admin account (System Owner only)
+export const createAdminAccount = (req: AuthRequest, res: Response) => {
+    try {
+        const creatorId = req.user!.id;
+
+        // Only national-level admins can create other admins
+        const creator = db.prepare('SELECT admin_level FROM users WHERE id = ?').get(creatorId) as any;
+        if (!creator || creator.admin_level !== 'national') {
+            throw new AppError('Only the national system owner can create admin accounts.', 403);
+        }
+
+        const { name, phone, email, nationalId, adminLevel, managedLocation } = req.body;
+
+        if (!name || !phone || !adminLevel) {
+            throw new AppError('Name, phone, and admin level are required.', 400);
+        }
+
+        const validLevels = ['national', 'province', 'district', 'sector'];
+        if (!validLevels.includes(adminLevel)) {
+            throw new AppError('Invalid admin level.', 400);
+        }
+
+        if (adminLevel !== 'national' && !managedLocation) {
+            throw new AppError('A managed location is required for non-national admin levels.', 400);
+        }
+
+        // Check if phone or national ID already exists
+        const existing = db.prepare('SELECT id FROM users WHERE phone = ? OR (national_id IS NOT NULL AND national_id = ?)').get(phone, nationalId || '');
+        if (existing) {
+            throw new AppError('A user with this phone or National ID already exists.', 409);
+        }
+
+        const id = uuidv4();
+        const setupToken = generateSetupToken();
+        const now = new Date().toISOString();
+
+        db.prepare(`
+            INSERT INTO users (id, phone, password_hash, name, national_id, email, role, admin_level, managed_location, setup_token, is_activated, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'admin', ?, ?, ?, 0, ?, ?, ?)
+        `).run(id, phone, 'PENDING', name, nationalId || null, email || null, adminLevel, managedLocation || null, setupToken, creatorId, now, now);
+
+        res.status(201).json({
+            success: true,
+            message: `Admin account created. Share this setup token with ${name} to let them set their password.`,
+            data: {
+                id,
+                name,
+                phone,
+                adminLevel,
+                managedLocation,
+                setupToken
+            }
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
+        console.error('createAdminAccount error:', error);
+        res.status(500).json({ success: false, message: 'Server error creating admin account' });
+    }
+};
+
 // Get all groups with stats
 export const getAllGroups = (req: AuthRequest, res: Response) => {
     try {
