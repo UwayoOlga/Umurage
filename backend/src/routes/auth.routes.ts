@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, refreshToken, logout, getMe, claimStaffId } from '../controllers/auth.controller';
+import { register, login, refreshToken, logout, getMe, claimStaffId, setupAccount } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
@@ -10,5 +10,6 @@ router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 router.get('/me', authenticate, getMe);
 router.post('/claim-staff-id', authenticate, claimStaffId); // Staff ID verification
+router.post('/setup-account', setupAccount); // Finalize admin account
 
 export default router;

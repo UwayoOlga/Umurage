@@ -18,6 +18,7 @@ interface AuthContextType {
     loading: boolean;
     login: (phone: string, password: string) => Promise<string>;
     register: (phone: string, password: string, name: string, nationalId: string) => Promise<string>;
+    setupAccount: (setupToken: string, password: string) => Promise<string>;
     logout: () => void;
     isAdmin: () => boolean;
     isTreasurer: () => boolean;
@@ -141,6 +142,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         router.push('/login');
     }, [router]);
 
+    const setupAccount = async (setupToken: string, password: string): Promise<string> => {
+        try {
+            const response = await fetch(`${API_URL}/auth/setup-account`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ setupToken, password }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Account setup failed. Please check your token.');
+            }
+
+            const { user: userData, accessToken: token, refreshToken } = data.data;
+            saveSession(userData, token, refreshToken);
+
+            return data.message || 'Account setup successful';
+        } catch (error: any) {
+            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                throw new Error('Unable to connect to the server. Please check your internet connection.');
+            }
+            throw error;
+        }
+    };
+
     const isAdmin = () => user?.role === 'admin';
     const isTreasurer = () => user?.role === 'treasurer';
     const isSecretary = () => user?.role === 'secretary';
@@ -149,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
         <AuthContext.Provider value={{
             user, accessToken, loading,
-            login, register, logout,
+            login, register, logout, setupAccount,
             isAdmin, isTreasurer, isSecretary, hasRole,
         }}>
             {children}

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminService } from '@/lib/services/admin.service';
 import { Card } from '@/components/ui/card';
-import { Users, Search, ChevronDown } from 'lucide-react';
+import { Users, Search, ChevronDown, UserPlus, Copy, CheckCircle2 } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
 
 interface User {
     id: string;
@@ -26,6 +27,19 @@ export default function UserManagement() {
     const [roleFilter, setRoleFilter] = useState('');
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
     const [editData, setEditData] = useState<Partial<User>>({});
+
+    // Invite Admin State
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [inviteData, setInviteData] = useState({
+        name: '',
+        phone: '',
+        email: '',
+        adminLevel: 'sector',
+        managedLocation: ''
+    });
+    const [inviting, setInviting] = useState(false);
+    const [setupToken, setSetupToken] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         if (user && !isAdmin()) {
@@ -48,6 +62,29 @@ export default function UserManagement() {
         }
     };
 
+    const handleInvite = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            setInviting(true);
+            const response = await adminService.createAdminAccount(inviteData);
+            setSetupToken(response.data.setupToken);
+            fetchUsers();
+            // Don't close modal yet so they can see the token
+        } catch (error: any) {
+            alert(error.message || 'Failed to invite admin');
+        } finally {
+            setInviting(false);
+        }
+    };
+
+    const handleCopyToken = () => {
+        if (setupToken) {
+            navigator.clipboard.writeText(setupToken);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     const handleSave = async (userId: string) => {
         try {
             await adminService.updateUserSettings(userId, {
@@ -62,6 +99,17 @@ export default function UserManagement() {
         }
     };
 
+    const getAdminLevelLabel = (level: string) => {
+        const labels: any = {
+            'national': 'National (RCA)',
+            'province': 'Province',
+            'district': 'District',
+            'sector': 'Sector (SACCO)',
+            'none': 'None'
+        };
+        return labels[level] || level;
+    };
+
     if (!user || !isAdmin()) {
         return null;
     }
@@ -69,10 +117,153 @@ export default function UserManagement() {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-                <p className="text-slate-500 text-sm mt-1">View and manage all system users</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
+                    <p className="text-slate-500 text-sm mt-1">View and manage all system users</p>
+                </div>
+                {user.admin_level === 'national' && (
+                    <button
+                        onClick={() => {
+                            setSetupToken(null);
+                            setIsInviteModalOpen(true);
+                        }}
+                        className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-emerald-200"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Invite Admin
+                    </button>
+                )}
             </div>
+
+            {/* Invite Admin Modal */}
+            <Modal
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+                title={setupToken ? "Admin Invited Successfully!" : "Invite New Administrator"}
+            >
+                {setupToken ? (
+                    <div className="space-y-6 py-4">
+                        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start gap-4">
+                            <div className="bg-emerald-100 p-2 rounded-lg">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <div>
+                                <h4 className="text-emerald-900 font-semibold mb-1 text-sm">Account Ready for Setup</h4>
+                                <p className="text-emerald-700 text-xs">Share this token with {inviteData.name}. They will need it to set their password at <span className="font-mono">/setup-account</span>.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">One-Time Setup Token</label>
+                            <div className="relative group">
+                                <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+                                    <span className="text-2xl font-mono font-bold tracking-widest text-emerald-700">{setupToken}</span>
+                                </div>
+                                <button
+                                    onClick={handleCopyToken}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                                >
+                                    {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
+                            <button
+                                onClick={() => setIsInviteModalOpen(false)}
+                                className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium hover:bg-slate-800 transition-colors"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleInvite} className="space-y-4 py-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Full Name</label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="e.g. Jean Doe"
+                                    value={inviteData.name}
+                                    onChange={(e) => setInviteData({ ...inviteData, name: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Phone Number</label>
+                                <input
+                                    required
+                                    type="tel"
+                                    placeholder="07xxxxxxxx"
+                                    value={inviteData.phone}
+                                    onChange={(e) => setInviteData({ ...inviteData, phone: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Email (Optional Reference)</label>
+                            <input
+                                type="email"
+                                placeholder="name@email.com"
+                                value={inviteData.email}
+                                onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Admin Level</label>
+                                <select
+                                    required
+                                    value={inviteData.adminLevel}
+                                    onChange={(e) => setInviteData({ ...inviteData, adminLevel: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none h-[42px]"
+                                >
+                                    <option value="sector">Sector (SACCO)</option>
+                                    <option value="district">District</option>
+                                    <option value="province">Province</option>
+                                    <option value="national">National (RCA)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Location Name</label>
+                                <input
+                                    required={inviteData.adminLevel !== 'national'}
+                                    disabled={inviteData.adminLevel === 'national'}
+                                    type="text"
+                                    placeholder={inviteData.adminLevel === 'national' ? 'Across Rwanda' : 'e.g. Nyarugenge'}
+                                    value={inviteData.adminLevel === 'national' ? '' : inviteData.managedLocation}
+                                    onChange={(e) => setInviteData({ ...inviteData, managedLocation: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-4 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setIsInviteModalOpen(false)}
+                                className="flex-1 bg-white text-slate-700 py-2.5 rounded-xl font-medium border border-slate-200 hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={inviting}
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                            >
+                                {inviting ? 'Generating...' : 'Generate Token'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
 
             {/* Filters */}
             <Card className="p-4">

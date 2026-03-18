@@ -101,6 +101,28 @@ class AdminService {
 
         return response.json();
     }
+
+    async createAdminAccount(data: {
+        name: string,
+        phone: string,
+        email?: string,
+        nationalId?: string,
+        adminLevel: string,
+        managedLocation?: string
+    }) {
+        const response = await fetch(`${API_URL}/admin/create-user`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create admin account');
+        }
+
+        return response.json();
+    }
 }
 
 export const adminService = new AdminService();

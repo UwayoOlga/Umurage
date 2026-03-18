@@ -6,7 +6,8 @@ import {
     updateUserRole,
     getAllGroups,
     getGroupDetails,
-    getSystemAnalytics
+    getSystemAnalytics,
+    createAdminAccount
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use(authorize('admin'));
 router.get('/users', getAllUsers);
 router.get('/users/stats', getUserStats);
 router.patch('/users/:id/role', updateUserRole);
+router.post('/create-user', createAdminAccount);
 
 // Group management routes
 router.get('/groups', getAllGroups);
