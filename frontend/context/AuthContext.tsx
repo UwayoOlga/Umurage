@@ -10,6 +10,8 @@ interface User {
     phone: string;
     name: string;
     role: 'member' | 'admin' | 'treasurer' | 'secretary';
+    admin_level?: 'none' | 'national' | 'province' | 'district' | 'sector';
+    managed_location?: string | null;
 }
 
 interface AuthContextType {
@@ -24,6 +26,7 @@ interface AuthContextType {
     isTreasurer: () => boolean;
     isSecretary: () => boolean;
     hasRole: (role: string) => boolean;
+    changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -172,11 +175,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isSecretary = () => user?.role === 'secretary';
     const hasRole = (role: string) => user?.role === role;
 
+    const changePassword = async (currentPassword: string, newPassword: string): Promise<string> => {
+        try {
+            const response = await fetch(`${API_URL}/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ currentPassword, newPassword }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to change password.');
+            }
+
+            return data.message || 'Password changed successfully';
+        } catch (error: any) {
+            throw error;
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             user, accessToken, loading,
             login, register, logout, setupAccount,
             isAdmin, isTreasurer, isSecretary, hasRole,
+            changePassword,
         }}>
             {children}
         </AuthContext.Provider>

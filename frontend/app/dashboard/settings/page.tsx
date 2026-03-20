@@ -11,7 +11,12 @@ import { useAuth } from "@/context/AuthContext";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export default function SettingsPage() {
-    const { user, logout } = useAuth();
+    const { user, logout, changePassword } = useAuth();
+
+    // Password change state
+    const [passwords, setPasswords] = useState({ current: '', new: '' });
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [passwordResult, setPasswordResult] = useState<{ success: boolean; message: string } | null>(null);
 
     // Staff ID claim state
     const [staffId, setStaffId] = useState('');
@@ -32,6 +37,21 @@ export default function SettingsPage() {
         };
         fetchProfile();
     }, [claimResult]);
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setChangingPassword(true);
+        setPasswordResult(null);
+        try {
+            const message = await changePassword(passwords.current, passwords.new);
+            setPasswordResult({ success: true, message });
+            setPasswords({ current: '', new: '' });
+        } catch (error: any) {
+            setPasswordResult({ success: false, message: error.message || 'Failed to change password.' });
+        } finally {
+            setChangingPassword(false);
+        }
+    };
 
     const handleClaimStaffId = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,6 +114,65 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </Card>
+
+            {/* Security Section (Change Password) */}
+            <div>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider ml-1 mb-3">
+                    Security
+                </h3>
+                <Card className="p-6">
+                    <form onSubmit={handlePasswordChange} className="space-y-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                                <Shield className="w-4 h-4" />
+                            </div>
+                            <h4 className="font-bold text-slate-900">Change Password</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 ml-1 italic">CURRENT PASSWORD</label>
+                                <input
+                                    type="password"
+                                    value={passwords.current}
+                                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                                    placeholder="••••••••"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-slate-500 ml-1 italic">NEW PASSWORD</label>
+                                <input
+                                    type="password"
+                                    value={passwords.new}
+                                    onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                                    placeholder="New secure password"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={changingPassword || !passwords.current || !passwords.new}
+                                className="px-4 py-2 bg-slate-900 text-white font-bold rounded-lg text-sm disabled:opacity-50 hover:bg-slate-800 transition-colors flex items-center gap-2"
+                            >
+                                {changingPassword && <Loader2 className="w-3 h-3 animate-spin" />}
+                                Update Password
+                            </button>
+                        </div>
+
+                        {passwordResult && (
+                            <div className={`p-3 rounded-lg text-xs font-medium ${passwordResult.success ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                                {passwordResult.message}
+                            </div>
+                        )}
+                    </form>
+                </Card>
+            </div>
 
             {/* Staff Credential Section */}
             <div>

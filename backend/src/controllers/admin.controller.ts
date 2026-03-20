@@ -372,3 +372,119 @@ export const getSystemAnalytics = (req: AuthRequest, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error fetching analytics' });
     }
 };
+
+// Get activity feed (recent transactions) scoped to admin level
+export const getActivityFeed = (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const { limit = 20 } = req.query;
+
+        const adminUser = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(userId) as any;
+
+        let scopeClause = 'WHERE 1=1';
+        const params: any[] = [];
+
+        if (adminUser.admin_level === 'sector') {
+            scopeClause = 'WHERE g.sector = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'district') {
+            scopeClause = 'WHERE g.district = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'province') {
+            scopeClause = 'WHERE g.province = ?';
+            params.push(adminUser.managed_location);
+        }
+
+        const query = `
+            SELECT 
+                t.id, t.type, t.amount, t.created_at, t.status, t.notes,
+                g.name as group_name, g.sector,
+                u_from.name as from_member_name,
+                u_to.name as to_member_name
+            FROM transactions t
+            JOIN groups g ON t.group_id = g.id
+            LEFT JOIN members m_from ON t.from_member_id = m_from.id
+            LEFT JOIN users u_from ON m_from.user_id = u_from.id
+            LEFT JOIN members m_to ON t.to_member_id = m_to.id
+            LEFT JOIN users u_to ON m_to.user_id = u_to.id
+            ${scopeClause}
+            ORDER BY t.created_at DESC
+            LIMIT ?
+        `;
+
+        const activities = db.prepare(query).all(...params, Number(limit));
+
+        res.status(200).json({
+            success: true,
+            data: activities
+        });
+    } catch (error) {
+        console.error('Get activity feed error:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching activity feed' });
+    }
+};
+
+// Get risk analysis for groups scoped to admin level
+export const getRiskAnalysis = (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const adminUser = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(userId) as any;
+
+        let scopeClause = 'WHERE 1=1';
+        const params: any[] = [];
+
+        if (adminUser.admin_level === 'sector') {
+            scopeClause = 'WHERE g.sector = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'district') {
+            scopeClause = 'WHERE g.district = ?';
+            params.push(adminUser.managed_location);
+        } else if (adminUser.admin_level === 'province') {
+            scopeClause = 'WHERE g.province = ?';
+            params.push(adminUser.managed_location);
+        }
+
+        const query = `
+            SELECT 
+                g.id, g.name, g.sector,
+                COUNT(DISTINCT m.id) as member_count,
+                COUNT(l.id) as total_loans,
+                SUM(CASE WHEN l.status = 'disbursed' AND l.due_date < date('now') THEN 1 ELSE 0 END) as overdue_loans,
+                SUM(CASE WHEN l.status = 'defaulted' THEN 1 ELSE 0 END) as defaulted_loans,
+                (SELECT COUNT(*) FROM savings s2 JOIN members m2 ON s2.member_id = m2.id WHERE m2.group_id = g.id AND s2.type = 'penalty') as penalty_count,
+                COALESCE(SUM(l.amount), 0) as total_loan_volume
+            FROM groups g
+            LEFT JOIN members m ON g.id = m.group_id
+            LEFT JOIN loans l ON m.id = l.member_id
+            ${scopeClause}
+            GROUP BY g.id
+            HAVING overdue_loans > 0 OR defaulted_loans > 0 OR penalty_count > 5
+            ORDER BY overdue_loans DESC, penalty_count DESC
+            LIMIT 10
+        `;
+
+        const highRiskGroups = db.prepare(query).all(...params) as any[];
+
+        // Map risk scores
+        const analysis = highRiskGroups.map(group => {
+            let score = 0;
+            if (group.overdue_loans > 0) score += 40 + (group.overdue_loans * 10);
+            if (group.defaulted_loans > 0) score += 30 + (group.defaulted_loans * 15);
+            if (group.penalty_count > 10) score += 20;
+
+            return {
+                ...group,
+                risk_score: Math.min(100, score),
+                risk_level: score > 70 ? 'CRITICAL' : score > 40 ? 'HIGH' : 'MEDIUM'
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: analysis
+        });
+    } catch (error) {
+        console.error('Get risk analysis error:', error);
+        res.status(500).json({ success: false, message: 'Server error performing risk analysis' });
+    }
+};

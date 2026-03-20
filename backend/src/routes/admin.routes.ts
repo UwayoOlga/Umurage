@@ -7,6 +7,8 @@ import {
     getAllGroups,
     getGroupDetails,
     getSystemAnalytics,
+    getActivityFeed,
+    getRiskAnalysis,
     createAdminAccount
 } from '../controllers/admin.controller';
 
@@ -26,7 +28,9 @@ router.post('/create-user', createAdminAccount);
 router.get('/groups', getAllGroups);
 router.get('/groups/:id', getGroupDetails);
 
-// Analytics routes
+// Analytics & Activity routes
 router.get('/analytics', getSystemAnalytics);
+router.get('/activity', getActivityFeed);
+router.get('/risk-analysis', getRiskAnalysis);
 
 export default router;

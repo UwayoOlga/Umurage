@@ -102,6 +102,32 @@ class AdminService {
         return response.json();
     }
 
+    async getActivityFeed(limit: number = 20) {
+        const response = await fetch(`${API_URL}/admin/activity?limit=${limit}`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch activity feed');
+        }
+
+        return response.json();
+    }
+
+    async getRiskAnalysis() {
+        const response = await fetch(`${API_URL}/admin/risk-analysis`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch risk analysis');
+        }
+
+        return response.json();
+    }
+
     async createAdminAccount(data: {
         name: string,
         phone: string,

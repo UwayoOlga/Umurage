@@ -59,7 +59,18 @@ export const register = async (req: Request, res: Response) => {
         res.status(201).json({
             success: true,
             message: 'Your account has been created successfully!',
-            data: { user: { id: user.id, phone: user.phone, name: user.name, role: user.role }, accessToken, refreshToken }
+            data: {
+                user: {
+                    id: user.id,
+                    phone: user.phone,
+                    name: user.name,
+                    role: user.role,
+                    admin_level: user.admin_level || 'none',
+                    managed_location: user.managed_location || null
+                },
+                accessToken,
+                refreshToken
+            }
         });
     } catch (error) {
         if (error instanceof AppError) {
@@ -108,7 +119,18 @@ export const login = async (req: Request, res: Response) => {
         res.status(200).json({
             success: true,
             message: `Welcome back, ${user.name}! Login successful.`,
-            data: { user: { id: user.id, phone: user.phone, name: user.name, role: user.role }, accessToken, refreshToken }
+            data: {
+                user: {
+                    id: user.id,
+                    phone: user.phone,
+                    name: user.name,
+                    role: user.role,
+                    admin_level: user.admin_level || 'none',
+                    managed_location: user.managed_location || null
+                },
+                accessToken,
+                refreshToken
+            }
         });
     } catch (error) {
         if (error instanceof AppError) {
@@ -312,5 +334,50 @@ export const setupAccount = async (req: Request, res: Response) => {
         }
         console.error('setupAccount error:', error);
         res.status(500).json({ success: false, message: 'Server error setting up account.' });
+    }
+};
+
+// Change password for an authenticated user
+export const changePassword = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            throw new AppError('Current password and new password are required.', 400);
+        }
+
+        if (newPassword.length < 6) {
+            throw new AppError('New password must be at least 6 characters.', 400);
+        }
+
+        // 1. Get current password hash
+        const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as any;
+        if (!user) throw new AppError('User not found', 404);
+
+        // 2. Verify current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            throw new AppError('The current password you entered is incorrect.', 401);
+        }
+
+        // 3. Hash and update new password
+        const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+        const now = new Date().toISOString();
+
+        db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
+            .run(hashedNewPassword, now, userId);
+
+        res.status(200).json({
+            success: true,
+            message: '✅ Your password has been changed successfully.'
+        });
+
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
+        console.error('changePassword error:', error);
+        res.status(500).json({ success: false, message: 'Server error changing password.' });
     }
 };
