@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { emailService } from '../services/email.service';
 import db from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
@@ -141,7 +142,7 @@ function generateSetupToken(): string {
 }
 
 // Create a new admin account (System Owner only)
-export const createAdminAccount = (req: AuthRequest, res: Response) => {
+export const createAdminAccount = async (req: AuthRequest, res: Response) => {
     try {
         const creatorId = req.user!.id;
 
@@ -181,13 +182,30 @@ export const createAdminAccount = (req: AuthRequest, res: Response) => {
             VALUES (?, ?, ?, ?, ?, ?, 'admin', ?, ?, ?, 0, ?, ?, ?)
         `).run(id, phone, 'PENDING', name, nationalId || null, email || null, adminLevel, managedLocation || null, setupToken, creatorId, now, now);
 
+        // Send invitation email if email is provided
+        if (email) {
+            try {
+                await emailService.sendAdminInvitation(
+                    email as string,
+                    name as string,
+                    adminLevel as string,
+                    managedLocation as string,
+                    setupToken
+                );
+            } catch (err) {
+                console.error('Failed to send email:', err);
+                // We don't fail the whole request just because email failed
+            }
+        }
+
         res.status(201).json({
             success: true,
-            message: `Admin account created. Share this setup token with ${name} to let them set their password.`,
+            message: `Official invitation sent to ${name}. ${email ? 'They should receive an email shortly.' : 'Please share the setup token with them.'}`,
             data: {
                 id,
                 name,
                 phone,
+                email,
                 adminLevel,
                 managedLocation,
                 setupToken
