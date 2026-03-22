@@ -182,6 +182,17 @@ export const createAdminAccount = async (req: AuthRequest, res: Response) => {
             VALUES (?, ?, ?, ?, ?, ?, 'admin', ?, ?, ?, 0, ?, ?, ?)
         `).run(id, phone, 'PENDING', name, nationalId || null, email || null, adminLevel, managedLocation || null, setupToken, creatorId, now, now);
 
+        // Mirror the invitation into the sacco_staff register (the official "Master List")
+        const staffId = `SAC-${adminLevel.substring(0, 3).toUpperCase()}-${id.substring(0, 6).toUpperCase()}`;
+        try {
+            db.prepare(`
+                INSERT INTO sacco_staff (id, staff_id, name, phone, email, national_id, admin_level, managed_location, claimed_by, invitation_sent_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id, staffId, name, phone || null, email || null, nationalId || null, adminLevel, managedLocation || null, null, now, now);
+        } catch (staffErr) {
+            console.error('Could not mirror to sacco_staff:', staffErr);
+        }
+
         // Send invitation email if email is provided
         if (email) {
             try {
@@ -194,21 +205,20 @@ export const createAdminAccount = async (req: AuthRequest, res: Response) => {
                 );
             } catch (err) {
                 console.error('Failed to send email:', err);
-                // We don't fail the whole request just because email failed
             }
         }
 
         res.status(201).json({
             success: true,
-            message: `Official invitation sent to ${name}. ${email ? 'They should receive an email shortly.' : 'Please share the setup token with them.'}`,
+            message: `Official invitation sent to ${name}. ${email ? 'They should receive an email shortly.' : 'Please share the setup token with them manually.'}`,
             data: {
                 id,
                 name,
                 phone,
                 email,
                 adminLevel,
-                managedLocation,
-                setupToken
+                managedLocation
+                // setupToken is intentionally NOT returned — only delivered via email to the invitee
             }
         });
     } catch (error) {

@@ -296,6 +296,13 @@ export const setupAccount = async (req: Request, res: Response) => {
             UPDATE users SET password_hash = ?, setup_token = NULL, is_activated = 1, updated_at = ? WHERE id = ?
         `).run(hashedPassword, now, user.id);
 
+        // Mark the sacco_staff record as claimed
+        try {
+            db.prepare(`
+                UPDATE sacco_staff SET claimed_by = ?, claimed_at = ? WHERE id = ?
+            `).run(user.id, now, user.id);
+        } catch (e) { /* sacco_staff record may not exist for all users */ }
+
         // Generate tokens so they're logged in right away
         const accessToken = jwt.sign(
             { id: user.id, phone: user.phone, role: user.role },

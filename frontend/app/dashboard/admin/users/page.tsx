@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminService } from '@/lib/services/admin.service';
 import { Card } from '@/components/ui/card';
-import { Users, Search, ChevronDown, UserPlus, Copy, CheckCircle2 } from 'lucide-react';
+import { Users, Search, ChevronDown, UserPlus, CheckCircle2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 
 interface User {
@@ -38,8 +38,7 @@ export default function UserManagement() {
         managedLocation: ''
     });
     const [inviting, setInviting] = useState(false);
-    const [setupToken, setSetupToken] = useState<string | null>(null);
-    const [copied, setCopied] = useState(false);
+    const [inviteSuccess, setInviteSuccess] = useState(false);
 
     useEffect(() => {
         if (user && !isAdmin()) {
@@ -66,22 +65,13 @@ export default function UserManagement() {
         e.preventDefault();
         try {
             setInviting(true);
-            const response = await adminService.createAdminAccount(inviteData);
-            setSetupToken(response.data.setupToken);
+            await adminService.createAdminAccount(inviteData);
+            setInviteSuccess(true);
             fetchUsers();
-            // Don't close modal yet so they can see the token
         } catch (error: any) {
             alert(error.message || 'Failed to invite admin');
         } finally {
             setInviting(false);
-        }
-    };
-
-    const handleCopyToken = () => {
-        if (setupToken) {
-            navigator.clipboard.writeText(setupToken);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
         }
     };
 
@@ -125,7 +115,8 @@ export default function UserManagement() {
                 {user.admin_level === 'national' && (
                     <button
                         onClick={() => {
-                            setSetupToken(null);
+                            setInviteSuccess(false);
+                            setInviteData({ name: '', phone: '', email: '', adminLevel: 'sector', managedLocation: '' });
                             setIsInviteModalOpen(true);
                         }}
                         className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-emerald-200"
@@ -136,47 +127,32 @@ export default function UserManagement() {
                 )}
             </div>
 
-            {/* Invite Admin Modal */}
             <Modal
                 isOpen={isInviteModalOpen}
                 onClose={() => setIsInviteModalOpen(false)}
-                title={setupToken ? "Admin Invited Successfully!" : "Invite New Administrator"}
+                title={inviteSuccess ? "Invitation Sent!" : "Invite New Administrator"}
             >
-                {setupToken ? (
-                    <div className="space-y-6 py-4">
-                        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start gap-4">
-                            <div className="bg-emerald-100 p-2 rounded-lg">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                            </div>
-                            <div>
-                                <h4 className="text-emerald-900 font-semibold mb-1 text-sm">Account Ready for Setup</h4>
-                                <p className="text-emerald-700 text-xs">Share this token with {inviteData.name}. They will need it to set their password at <span className="font-mono">/setup-account</span>.</p>
-                            </div>
+                {inviteSuccess ? (
+                    <div className="space-y-6 py-4 text-center">
+                        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">One-Time Setup Token</label>
-                            <div className="relative group">
-                                <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
-                                    <span className="text-2xl font-mono font-bold tracking-widest text-emerald-700">{setupToken}</span>
-                                </div>
-                                <button
-                                    onClick={handleCopyToken}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white shadow-sm border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                                >
-                                    {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
-                                </button>
-                            </div>
+                        <div>
+                            <h4 className="text-slate-900 font-semibold text-lg mb-2">Email Sent to {inviteData.name}</h4>
+                            <p className="text-slate-500 text-sm">
+                                An official invitation email has been sent to <span className="font-semibold text-slate-700">{inviteData.email}</span>.
+                                They will receive a secure link to activate their account and set their own password.
+                            </p>
                         </div>
-
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setIsInviteModalOpen(false)}
-                                className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium hover:bg-slate-800 transition-colors"
-                            >
-                                Done
-                            </button>
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-left">
+                            <p className="text-amber-800 text-xs font-medium">📌 No email address provided? Remind them to visit <span className="font-mono">/setup-account</span> and contact you for their token.</p>
                         </div>
+                        <button
+                            onClick={() => setIsInviteModalOpen(false)}
+                            className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium hover:bg-slate-800 transition-colors"
+                        >
+                            Done
+                        </button>
                     </div>
                 ) : (
                     <form onSubmit={handleInvite} className="space-y-4 py-4">
@@ -206,14 +182,16 @@ export default function UserManagement() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Email (Optional Reference)</label>
+                            <label className="text-sm font-medium text-slate-700">Email Address <span className="text-rose-500">*</span></label>
                             <input
+                                required
                                 type="email"
                                 placeholder="name@email.com"
                                 value={inviteData.email}
                                 onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                             />
+                            <p className="text-xs text-slate-400">The activation link will be delivered to this address.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -258,7 +236,7 @@ export default function UserManagement() {
                                 disabled={inviting}
                                 className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
                             >
-                                {inviting ? 'Generating...' : 'Generate Token'}
+                                {inviting ? 'Sending Invitation...' : 'Send Invitation'}
                             </button>
                         </div>
                     </form>

@@ -172,12 +172,17 @@ db.exec(`
     );
 
     CREATE TABLE IF NOT EXISTS sacco_staff (
-        staff_id TEXT PRIMARY KEY,
+        id TEXT PRIMARY KEY,
+        staff_id TEXT UNIQUE,
         name TEXT NOT NULL,
+        phone TEXT UNIQUE,
+        email TEXT,
+        national_id TEXT UNIQUE,
         admin_level TEXT NOT NULL CHECK (admin_level IN ('national', 'province', 'district', 'sector')),
         managed_location TEXT,
         claimed_by TEXT REFERENCES users(id),
         claimed_at TEXT,
+        invitation_sent_at TEXT,
         created_at TEXT DEFAULT (datetime('now'))
     );
 `);
@@ -198,6 +203,13 @@ try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE users ADD COLUMN setup_token TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE users ADD COLUMN is_activated INTEGER DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE users ADD COLUMN created_by TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE sacco_staff ADD COLUMN id TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE sacco_staff ADD COLUMN phone TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE sacco_staff ADD COLUMN email TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE sacco_staff ADD COLUMN national_id TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE sacco_staff ADD COLUMN invitation_sent_at TEXT;`); } catch (e) { }
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sacco_staff_phone ON sacco_staff(phone);`); } catch (e) { }
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sacco_staff_national ON sacco_staff(national_id);`); } catch (e) { }
 
 console.log('✅ Connected to SQLite database at', DB_PATH);
 

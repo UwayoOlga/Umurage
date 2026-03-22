@@ -8,7 +8,7 @@ const db = new sqlite3(dbPath);
 
 async function createRoot() {
     console.log('--- ROOT ADMIN GENERATOR ---');
-    const phone = '0780000001';
+    const phone = '0730000001';
     const password = 'admin_password_2026';
     const hashedPassword = await bcrypt.hash(password, 12);
     const id = randomUUID();
