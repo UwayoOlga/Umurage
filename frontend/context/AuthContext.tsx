@@ -23,6 +23,9 @@ interface AuthContextType {
     setupAccount: (setupToken: string, password: string) => Promise<string>;
     logout: () => void;
     isAdmin: () => boolean;
+    isSystemAdmin: () => boolean;
+    isRCAAdmin: () => boolean;
+    isSaccoAdmin: () => boolean;
     isTreasurer: () => boolean;
     isSecretary: () => boolean;
     hasRole: (role: string) => boolean;
@@ -170,8 +173,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const isAdmin = () => user?.role === 'admin';
-    const isTreasurer = () => user?.role === 'treasurer';
+    const isAdmin = useCallback(() => user?.role === 'admin', [user]);
+
+    // System Admin = National level but without RCA specifier (or root phone)
+    const isSystemAdmin = useCallback(() => {
+        return user?.role === 'admin' && user?.admin_level === 'national' && (!user?.managed_location || user?.managed_location === 'System' || user?.phone === '0730000001');
+    }, [user]);
+
+    // RCA Admin = National level but strictly restricted to RCA operations
+    const isRCAAdmin = useCallback(() => {
+        return user?.role === 'admin' && user?.admin_level === 'national' && user?.managed_location === 'RCA';
+    }, [user]);
+
+    // SACCO Admin = Below national level (Province, District, Sector)
+    const isSaccoAdmin = useCallback(() => {
+        return user?.role === 'admin' && ['province', 'district', 'sector'].includes(user?.admin_level || '');
+    }, [user]);
+
+    const isTreasurer = useCallback(() => user?.role === 'treasurer', [user]);
     const isSecretary = () => user?.role === 'secretary';
     const hasRole = (role: string) => user?.role === role;
 
@@ -201,7 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <AuthContext.Provider value={{
             user, accessToken, loading,
             login, register, logout, setupAccount,
-            isAdmin, isTreasurer, isSecretary, hasRole,
+            isAdmin, isSystemAdmin, isRCAAdmin, isSaccoAdmin,
+            isTreasurer, isSecretary, hasRole,
             changePassword,
         }}>
             {children}

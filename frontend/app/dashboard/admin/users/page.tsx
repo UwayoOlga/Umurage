@@ -20,7 +20,7 @@ interface User {
 
 export default function UserManagement() {
     const router = useRouter();
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, isSystemAdmin, isRCAAdmin, isSaccoAdmin } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -107,12 +107,14 @@ export default function UserManagement() {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 border-b border-slate-100 pb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-                    <p className="text-slate-500 text-sm mt-1">View and manage all system users</p>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                        User Management
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">Manage platform administrators and monitor activity.</p>
                 </div>
-                {user.admin_level === 'national' && (
+                {user?.admin_level !== 'sector' && (
                     <button
                         onClick={() => {
                             setInviteSuccess(false);
@@ -121,8 +123,7 @@ export default function UserManagement() {
                         }}
                         className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm shadow-emerald-200"
                     >
-                        <UserPlus className="w-4 h-4" />
-                        Invite Admin
+                        <UserPlus className="w-4 h-4" /> Invite Administrator
                     </button>
                 )}
             </div>
@@ -204,21 +205,20 @@ export default function UserManagement() {
                                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none h-[42px]"
                                 >
                                     <option value="sector">Sector (SACCO)</option>
-                                    <option value="district">District</option>
-                                    <option value="province">Province</option>
-                                    <option value="national">National (RCA)</option>
+                                    {(isSystemAdmin() || isRCAAdmin() || user?.admin_level === 'province') && <option value="district">District</option>}
+                                    {(isSystemAdmin() || isRCAAdmin()) && <option value="province">Province</option>}
+                                    {isSystemAdmin() && <option value="national">National (RCA/System)</option>}
                                 </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Location Name</label>
                                 <input
-                                    required={inviteData.adminLevel !== 'national'}
-                                    disabled={inviteData.adminLevel === 'national'}
+                                    required
                                     type="text"
-                                    placeholder={inviteData.adminLevel === 'national' ? 'Across Rwanda' : 'e.g. Nyarugenge'}
-                                    value={inviteData.adminLevel === 'national' ? '' : inviteData.managedLocation}
+                                    placeholder={inviteData.adminLevel === 'national' ? 'e.g. RCA or System' : 'e.g. Nyarugenge'}
+                                    value={inviteData.managedLocation}
                                     onChange={(e) => setInviteData({ ...inviteData, managedLocation: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                                 />
                             </div>
                         </div>

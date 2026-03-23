@@ -13,7 +13,10 @@ import {
     LogOut,
     Shield,
     Layers,
-    Calendar
+    Calendar,
+    FileText,
+    Server,
+    Activity
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
@@ -23,7 +26,7 @@ import { Globe } from "lucide-react";
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { user, isAdmin, logout } = useAuth();
+    const { user, isAdmin, isSystemAdmin, isRCAAdmin, isSaccoAdmin, logout } = useAuth();
     const { language, setLanguage, t } = useLanguage();
 
     const navItems = [
@@ -36,11 +39,29 @@ export function Sidebar() {
         { label: t('common.settings'), href: "/dashboard/settings", icon: Settings },
     ];
 
-    const adminNavItems = [
-        { label: "Admin Dashboard", href: "/dashboard/admin", icon: Shield },
-        { label: "User Management", href: "/dashboard/admin/users", icon: Users },
-        { label: "Groups Overview", href: "/dashboard/admin/groups", icon: Layers },
+    // Base items everyone sees
+    let adminNavItems = [
+        { label: "Overview", href: "/dashboard/admin", icon: Shield },
     ];
+
+    if (isSystemAdmin()) {
+        adminNavItems.push(
+            { label: "Admin Management", href: "/dashboard/admin/users", icon: Shield },
+            { label: "System Config", href: "/dashboard/admin/system", icon: Server },
+            { label: "Audit Logs", href: "/dashboard/admin/logs", icon: Activity }
+        );
+    } else if (isRCAAdmin()) {
+        adminNavItems.push(
+            { label: "SACCO Management", href: "/dashboard/admin/users", icon: Users },
+            { label: "National Groups", href: "/dashboard/admin/groups", icon: Layers },
+            { label: "Financial Reports", href: "/dashboard/admin/reports", icon: FileText }
+        );
+    } else if (isSaccoAdmin()) {
+        adminNavItems.push(
+            { label: "Staff Management", href: "/dashboard/admin/users", icon: Users },
+            { label: "District Groups", href: "/dashboard/admin/groups", icon: Layers }
+        );
+    }
 
     return (
         <aside className="hidden md:flex flex-col w-64 h-screen bg-white border-r border-slate-100 fixed left-0 top-0 z-40">
@@ -81,7 +102,7 @@ export function Sidebar() {
                     <>
                         <div className="pt-4 pb-2">
                             <div className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                Administration
+                                {isSystemAdmin() ? "System Operations" : isRCAAdmin() ? "RCA National" : "SACCO Regional"}
                             </div>
                         </div>
                         {adminNavItems.map((item) => {

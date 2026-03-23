@@ -146,10 +146,9 @@ export const createAdminAccount = async (req: AuthRequest, res: Response) => {
     try {
         const creatorId = req.user!.id;
 
-        // Only national-level admins can create other admins
-        const creator = db.prepare('SELECT admin_level FROM users WHERE id = ?').get(creatorId) as any;
-        if (!creator || creator.admin_level !== 'national') {
-            throw new AppError('Only the national system owner can create admin accounts.', 403);
+        const creator = db.prepare('SELECT admin_level, managed_location FROM users WHERE id = ?').get(creatorId) as any;
+        if (!creator || creator.admin_level === 'none' || creator.admin_level === 'sector') {
+            throw new AppError('You do not have permission to create administrative accounts.', 403);
         }
 
         const { name, phone, email, nationalId, adminLevel, managedLocation } = req.body;
@@ -163,9 +162,18 @@ export const createAdminAccount = async (req: AuthRequest, res: Response) => {
             throw new AppError('Invalid admin level.', 400);
         }
 
-        if (adminLevel !== 'national' && !managedLocation) {
-            throw new AppError('A managed location is required for non-national admin levels.', 400);
+        // SACCO Hierarchy Checks
+        if (creator.admin_level === 'province' && !['district', 'sector'].includes(adminLevel)) {
+            throw new AppError('Province Admins can only create District and Sector administrators.', 403);
         }
+        if (creator.admin_level === 'district' && adminLevel !== 'sector') {
+            throw new AppError('District Admins can only create Sector administrators.', 403);
+        }
+
+        if (adminLevel !== 'national' && !managedLocation) {
+            throw new AppError('A strictly enforced managed location is required for non-national admin levels.', 400);
+        }
+
 
         // Check if phone or national ID already exists
         const existing = db.prepare('SELECT id FROM users WHERE phone = ? OR (national_id IS NOT NULL AND national_id = ?)').get(phone, nationalId || '');
