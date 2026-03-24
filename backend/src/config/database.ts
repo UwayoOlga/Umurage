@@ -84,10 +84,14 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS loans (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
         member_id TEXT REFERENCES members(id) ON DELETE CASCADE,
+        group_id TEXT REFERENCES groups(id) ON DELETE CASCADE,
         amount REAL NOT NULL CHECK (amount > 0),
         interest_rate REAL DEFAULT 5.00,
         purpose TEXT,
         status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disbursed', 'repaid', 'defaulted')),
+        borrow_level TEXT DEFAULT 'MEMBER' CHECK (borrow_level IN ('MEMBER', 'GROUP')),
+        lender_source TEXT DEFAULT 'INTERNAL' CHECK (lender_source IN ('INTERNAL', 'SACCO')),
+        resolution_path TEXT,
         approved_by TEXT REFERENCES users(id),
         approved_at TEXT,
         disbursed_at TEXT,
@@ -95,6 +99,15 @@ db.exec(`
         ai_score REAL,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS loan_resolutions (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+        loan_id TEXT NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+        member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        signed_at TEXT,
+        UNIQUE(loan_id, member_id)
     );
 
     CREATE TABLE IF NOT EXISTS transactions (

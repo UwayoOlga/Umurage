@@ -38,6 +38,7 @@ export default function CommunityDetailsPage() {
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+
     // Start Rotation modal
     const [showStartModal, setShowStartModal] = useState(false);
     const [amount, setAmount] = useState('');
@@ -230,6 +231,7 @@ export default function CommunityDetailsPage() {
             .format(amt).replace('RWF', '').trim() + ' RWF';
 
     const isChairperson = myRole === 'admin';
+    const isSecretary = myRole === 'secretary';
     const isLeader = ['admin', 'secretary', 'treasurer'].includes(myRole);
     const activeMembers = members.filter(m => m.status === 'active');
 
