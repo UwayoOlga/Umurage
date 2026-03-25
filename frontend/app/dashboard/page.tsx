@@ -14,7 +14,9 @@ import {
     Banknote,
     Loader2,
     CheckCircle2,
-    Plus
+    Plus,
+    PiggyBank,
+    HandCoins
 } from 'lucide-react';
 
 import { dashboardService } from '@/lib/services/dashboard.service';
@@ -190,15 +192,79 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label={t('dashboard.total_savings')}
-                    value={loading ? "..." : formatCurrency(summary?.totalSavings || 0)}
-                    icon={Wallet}
-                    trend={loading ? undefined : "+0% this month"}
-                    trendUp={true}
-                />
+            {/* Visual Action Grid - Mobile First & Low-Literacy Friendly */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <button
+                    onClick={() => setShowSavingModal(true)}
+                    className="relative overflow-hidden group p-6 rounded-3xl bg-emerald-600 border border-emerald-500 shadow-xl shadow-emerald-200/50 hover:scale-[1.02] transition-all text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
+                        <PiggyBank className="w-24 h-24 text-white" />
+                    </div>
+                    <div className="relative z-10 flex flex-col gap-4">
+                        <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                            <PiggyBank className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-white leading-tight">{t('dashboard.record_deposit')}</h3>
+                            <p className="text-emerald-100 text-sm font-medium mt-1">Add to your savings</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => setShowLoanModal(true)}
+                    className="relative overflow-hidden group p-6 rounded-3xl bg-blue-600 border border-blue-500 shadow-xl shadow-blue-200/50 hover:scale-[1.02] transition-all text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
+                        <HandCoins className="w-24 h-24 text-white" />
+                    </div>
+                    <div className="relative z-10 flex flex-col gap-4">
+                        <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                            <HandCoins className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-white leading-tight">{t('dashboard.apply_loan')}</h3>
+                            <p className="text-blue-100 text-sm font-medium mt-1">Request money now</p>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => setShowJoinModal(true)}
+                    className="relative overflow-hidden group p-6 rounded-3xl bg-purple-600 border border-purple-500 shadow-xl shadow-purple-200/50 hover:scale-[1.02] transition-all text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
+                        <Users className="w-24 h-24 text-white" />
+                    </div>
+                    <div className="relative z-10 flex flex-col gap-4">
+                        <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                            <Users className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-white leading-tight">{t('communities.join_group')}</h3>
+                            <p className="text-purple-100 text-sm font-medium mt-1">Find your neighbors</p>
+                        </div>
+                    </div>
+                </button>
+
+                <div className="p-6 rounded-3xl bg-white border-2 border-slate-100 flex flex-col justify-between shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Your Wallet</p>
+                        <Wallet className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <div>
+                        <p className="text-2xl font-black text-slate-900">{loading ? "..." : formatCurrency(summary?.totalSavings || 0)}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <p className="text-xs font-bold text-emerald-600 uppercase">Live Account</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
                 <StatCard
                     label={t('dashboard.active_loans')}
                     value={loading ? "..." : formatCurrency(summary?.activeLoans || 0)}
@@ -218,8 +284,14 @@ export default function Dashboard() {
                     value={loading ? "..." : (summary?.pendingActions || 0).toString()}
                     icon={AlertCircle}
                     color="text-amber-500"
-                    trend="Requires attention"
+                    trend="Check now"
                     trendUp={false}
+                />
+                <StatCard
+                    label="Rotation Turn"
+                    value={loading ? "..." : "Next Week"}
+                    icon={Calendar}
+                    color="text-emerald-600"
                 />
             </div>
 
@@ -267,40 +339,17 @@ export default function Dashboard() {
 
                 {/* Right Column - Quick Actions & Reminders */}
                 <div className="space-y-6">
-                    <h2 className="text-lg font-bold text-slate-800">{t('dashboard.quick_actions')}</h2>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button
-                            onClick={() => setShowSavingModal(true)}
-                            className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left"
-                        >
-                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
-                                <Wallet className="w-6 h-6" />
-                            </div>
-                            <span className="font-semibold text-slate-700 block text-sm">{t('dashboard.record_deposit')}</span>
+                    <h2 className="text-lg font-bold text-slate-800">Support</h2>
+                    <Card className="p-6 bg-slate-50 border-none shadow-none text-center">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        </div>
+                        <h4 className="font-bold text-slate-900 mb-1 leading-tight">Your money is safe</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed">System protected by National Bank of Rwanda compliance standards.</p>
+                        <button className="mt-4 w-full py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors">
+                            How to use this app?
                         </button>
-                        <button
-                            onClick={() => setShowLoanModal(true)}
-                            className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all group text-left"
-                        >
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
-                                <Banknote className="w-6 h-6" />
-                            </div>
-                            <span className="font-semibold text-slate-700 block text-sm">{t('dashboard.apply_loan')}</span>
-                        </button>
-                        <button onClick={() => setShowJoinModal(true)} className="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all group text-left">
-                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
-                                <Plus className="w-6 h-6" />
-                            </div>
-                            <span className="font-semibold text-slate-700 block text-sm">{t('communities.join_group')}</span>
-                        </button>
-                        <button className="p-4 bg-white border border-slate-200 rounded-xl hover:border-amber-500 hover:shadow-md transition-all group text-left">
-                            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
-                                <AlertCircle className="w-6 h-6" />
-                            </div>
-                            <span className="font-semibold text-slate-700 block text-sm">Send<br />Reminder</span>
-                        </button>
-                    </div>
-
+                    </Card>
                     <div className="bg-gradient-to-br from-emerald-800 to-emerald-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-10">
                             <Wallet className="w-32 h-32" />
