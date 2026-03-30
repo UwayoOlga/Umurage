@@ -9,7 +9,8 @@ import {
     getSystemAnalytics,
     getActivityFeed,
     getRiskAnalysis,
-    createAdminAccount
+    createAdminAccount,
+    getReports
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -32,5 +33,6 @@ router.get('/groups/:id', getGroupDetails);
 router.get('/analytics', getSystemAnalytics);
 router.get('/activity', getActivityFeed);
 router.get('/risk-analysis', getRiskAnalysis);
+router.get('/reports', getReports);
 
 export default router;

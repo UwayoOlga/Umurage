@@ -1,6 +1,6 @@
 "use client";
 
-import { StatCard, Card } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import {
@@ -16,10 +16,14 @@ import {
     CheckCircle2,
     Plus,
     PiggyBank,
-    HandCoins
+    HandCoins,
+    Download,
+    FileText,
+    History
 } from 'lucide-react';
 
 import { dashboardService } from '@/lib/services/dashboard.service';
+import { adminService } from '@/lib/services/admin.service';
 import { savingService } from '@/lib/services/saving.service';
 import { loanService } from '@/lib/services/loan.service';
 import { groupService } from '@/lib/services/group.service';
@@ -37,6 +41,12 @@ export default function Dashboard() {
     const [showSavingModal, setShowSavingModal] = useState(false);
     const [showLoanModal, setShowLoanModal] = useState(false);
     const [showJoinModal, setShowJoinModal] = useState(false);
+    const [showReportsModal, setShowReportsModal] = useState(false);
+
+    // Reports states
+    const [reportsData, setReportsData] = useState<any[]>([]);
+    const [reportsType, setReportsType] = useState('member_statement');
+    const [reportsLoading, setReportsLoading] = useState(false);
 
     // Form states
     const [groups, setGroups] = useState<any[]>([]);
@@ -118,6 +128,19 @@ export default function Dashboard() {
             alert("Failed to record deposit");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const fetchReports = async (type: string) => {
+        setReportsLoading(true);
+        setReportsType(type);
+        try {
+            const res = await adminService.getReports(type, selectedGroupId);
+            setReportsData(res.data);
+        } catch (error) {
+            console.error('Error fetching reports:', error);
+        } finally {
+            setReportsLoading(false);
         }
     };
 
@@ -335,6 +358,26 @@ export default function Dashboard() {
                             )}
                         </div>
                     </Card>
+                    <div className="grid grid-cols-2 gap-4">
+                        <ActionCard
+                            icon={<Users className="w-8 h-8" />}
+                            title="Community"
+                            subtitle="Join Ikimina"
+                            color="bg-blue-500"
+                            onClick={() => setShowJoinModal(true)}
+                        />
+
+                        <ActionCard
+                            icon={<FileText className="w-8 h-8" />}
+                            title="Statements"
+                            subtitle="Download DNA"
+                            color="bg-purple-600"
+                            onClick={() => {
+                                setShowReportsModal(true);
+                                fetchReports('member_statement');
+                            }}
+                        />
+                    </div>
                 </div>
 
                 {/* Right Column - Quick Actions & Reminders */}
@@ -526,6 +569,100 @@ export default function Dashboard() {
                     </form>
                 )}
             </Modal>
+            {/* Reports Modal */}
+            <Modal
+                isOpen={showReportsModal}
+                onClose={() => setShowReportsModal(false)}
+                title="Financial Statements"
+            >
+                <div className="space-y-4">
+                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                        <button
+                            onClick={() => fetchReports('member_statement')}
+                            className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", reportsType === 'member_statement' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")}
+                        >
+                            Personal
+                        </button>
+                        {(user?.role === 'admin' || user?.role === 'treasurer') && (
+                            <button
+                                onClick={() => fetchReports('group_performance')}
+                                className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", reportsType === 'group_performance' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")}
+                            >
+                                Group
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                        {reportsLoading ? (
+                            <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-emerald-600" /></div>
+                        ) : reportsData.length === 0 ? (
+                            <p className="text-center py-12 text-slate-400 text-sm">No records found</p>
+                        ) : (
+                            reportsData.map((rpt: any, i: number) => (
+                                <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800">{rpt.doc_type || 'Record'}</p>
+                                        <p className="text-[10px] text-slate-500">{new Date(rpt.date || rpt.created_at).toLocaleDateString()} • {rpt.type || 'Standard'}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-bold text-emerald-700">{formatCurrency(rpt.amount)}</p>
+                                        <Download className="w-3 h-3 text-slate-400 ml-auto mt-1 cursor-pointer hover:text-emerald-600" />
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => window.print()}
+                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700"
+                    >
+                        <Download className="w-4 h-4" />
+                        Download Full PDF DNA
+                    </button>
+                </div>
+            </Modal>
         </div>
+    );
+}
+
+// Low-literacy friendly action cards
+function ActionCard({ icon, title, subtitle, color, onClick }: any) {
+    return (
+        <button
+            onClick={onClick}
+            className="flex items-center gap-4 p-4 rounded-3xl bg-white border-2 border-slate-50 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all text-left w-full group"
+        >
+            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform", color)}>
+                {icon}
+            </div>
+            <div>
+                <h4 className="font-black text-slate-900 leading-tight">{title}</h4>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mt-0.5">{subtitle}</p>
+            </div>
+        </button>
+    );
+}
+
+// Standard data display stats
+function StatCard({ label, value, icon: Icon, color, trend, trendUp }: any) {
+    return (
+        <Card className="p-4 border-none shadow-sm bg-white overflow-hidden relative">
+            <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
+                    <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+                    <p className="text-sm font-black text-slate-900 truncate">{value}</p>
+                    {trend && (
+                        <p className={cn("text-[8px] font-bold", trendUp ? "text-emerald-600" : "text-amber-500")}>
+                            {trend}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </Card>
     );
 }

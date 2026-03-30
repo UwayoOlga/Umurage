@@ -149,6 +149,24 @@ class AdminService {
 
         return response.json();
     }
+
+    async getReports(type: string, groupId?: string) {
+        const params = new URLSearchParams({
+            type,
+            ...(groupId && { groupId }),
+        });
+
+        const response = await fetch(`${API_URL}/admin/reports?${params}`, {
+            headers: this.getAuthHeaders(),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch reports');
+        }
+
+        return response.json();
+    }
 }
 
 export const adminService = new AdminService();

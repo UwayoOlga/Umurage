@@ -162,15 +162,42 @@ export const disbursePayout = async (req: any, res: any) => {
         const nextOrder = rotation.current_order + 1;
         const nextMember = db.prepare('SELECT id FROM members WHERE group_id = ? AND rotation_order = ?').get(groupId, nextOrder) as any;
 
-        const transaction = db.transaction(() => {
-            // 1. Record share_out transaction
+        const turnTransaction = db.transaction(() => {
+            // 1. Record share_out transaction for the current receiver
+            const memberCountResult = db.prepare("SELECT count(*) as count FROM members WHERE group_id = ? AND status = 'active'").get(groupId) as any;
+            const memberCount = memberCountResult?.count || 0;
+            const payoutAmount = rotation.amount_per_member * memberCount;
+
             db.prepare(`
                 INSERT INTO transactions (group_id, type, amount, to_member_id, reference_id, reference_type, status, notes)
                 VALUES (?, 'share_out', ?, ?, ?, 'rotation', 'completed', ?)
-            `).run(groupId, rotation.amount_per_member * (db.prepare("SELECT count(*) as count FROM members WHERE group_id = ? AND status = 'active'").get(groupId) as any).count, rotation.current_turn_member_id, rotation.id, 'Monthly Ikimina payout disbursed');
+            `).run(groupId, payoutAmount, rotation.current_turn_member_id, rotation.id, 'Monthly Ikimina payout disbursed');
 
+            // 2. Automated Penalties: Find everyone who hasn't paid in this turn
+            const unpaidMembers = db.prepare(`
+                SELECT m.id 
+                FROM members m
+                WHERE m.group_id = ? AND m.status = 'active'
+                AND NOT EXISTS (
+                    SELECT 1 FROM savings s 
+                    WHERE s.member_id = m.id 
+                    AND s.type = 'regular' 
+                    AND s.created_at >= ?
+                )
+            `).all(groupId, rotation.updated_at) as any[];
+
+            const penaltyAmount = rotation.penalty_amount || 500;
+            const insertPenalty = db.prepare(`
+                INSERT INTO savings (member_id, amount, type, notes)
+                VALUES (?, ?, 'penalty', ?)
+            `);
+
+            unpaidMembers.forEach(m => {
+                insertPenalty.run(m.id, penaltyAmount, `Auto-penalty: Missed contribution for turn ending ${new Date().toLocaleDateString()}`);
+            });
+
+            // 3. Advance turn if there's someone next
             if (nextMember) {
-                // Advance turn
                 const currentPayoutDate = new Date(rotation.payout_date);
                 let nextPayoutDate = new Date(currentPayoutDate);
 
@@ -178,46 +205,26 @@ export const disbursePayout = async (req: any, res: any) => {
                 else if (rotation.contribution_frequency === 'biweekly') nextPayoutDate.setDate(currentPayoutDate.getDate() + 14);
                 else if (rotation.contribution_frequency === 'monthly') nextPayoutDate.setMonth(currentPayoutDate.getMonth() + 1);
 
-                // 2. Automate Penalties: Find everyone who hasn't paid in this turn
-                const unpaidMembers = db.prepare(`
-                    SELECT m.id 
-                    FROM members m
-                    WHERE m.group_id = ? AND m.status = 'active'
-                    AND NOT EXISTS (
-                        SELECT 1 FROM savings s 
-                        WHERE s.member_id = m.id 
-                        AND s.type = 'regular' 
-                        AND s.created_at >= ?
-                    )
-                `).all(groupId, rotation.updated_at) as any[];
-
-                const penaltyAmount = rotation.penalty_amount || 500;
-                const insertPenalty = db.prepare(`
-                    INSERT INTO savings (member_id, amount, type, notes)
-                    VALUES (?, ?, 'penalty', ?)
-                `);
-
-                unpaidMembers.forEach(m => {
-                    insertPenalty.run(m.id, penaltyAmount, `Auto-penalty: Missed contribution for turn ending ${new Date().toLocaleDateString()}`);
-                });
-
                 db.prepare(`
                     UPDATE rotations 
                     SET current_turn_member_id = ?, payout_date = ?, updated_at = datetime('now') 
                     WHERE id = ?
                 `).run(nextMember.id, nextPayoutDate.toISOString().split('T')[0], rotation.id);
             } else {
-                // Complete cycle
+                // End of cycle
                 db.prepare("UPDATE rotations SET status = 'completed', updated_at = datetime('now') WHERE id = ?").run(rotation.id);
             }
         });
 
-        transaction();
+        turnTransaction();
 
-        res.status(200).json({ message: nextMember ? 'Payout disbursed and turn advanced!' : 'Final payout disbursed. Rotation completed!' });
+        res.status(200).json({
+            success: true,
+            message: nextMember ? 'Payout disbursed and turn advanced!' : 'Final payout disbursed. Rotation completed!'
+        });
     } catch (error) {
         console.error('Disburse payout error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ success: false, message: 'Server error disbursing payout' });
     }
 };
 
