@@ -271,19 +271,12 @@ export default function Dashboard() {
                     </div>
                 </button>
 
-                <div className="p-6 rounded-3xl bg-white border-2 border-slate-100 flex flex-col justify-between shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Your Wallet</p>
-                        <Wallet className="w-5 h-5 text-emerald-500" />
-                    </div>
-                    <div>
-                        <p className="text-2xl font-black text-slate-900">{loading ? "..." : formatCurrency(summary?.totalSavings || 0)}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-xs font-bold text-emerald-600 uppercase">Live Account</p>
-                        </div>
-                    </div>
-                </div>
+                <AgasekeProgress
+                    current={summary?.totalSavings || 0}
+                    goal={100000}
+                    loading={loading}
+                    label="Saving Basket"
+                />
             </div>
 
             {/* Quick Stats Grid */}
@@ -663,6 +656,53 @@ function StatCard({ label, value, icon: Icon, color, trend, trendUp }: any) {
                     )}
                 </div>
             </div>
+        </Card>
+    );
+}
+
+// Visual Progress Indicator for Low-Literacy Users
+function AgasekeProgress({ current, goal, loading, label }: any) {
+    const percentage = Math.min(Math.round((current / goal) * 100), 100);
+    const fillHeight = 100 - percentage;
+
+    return (
+        <Card className="p-6 rounded-3xl bg-white border-2 border-slate-100 flex items-center gap-6 shadow-sm overflow-hidden group">
+            {/* The Agaseke Silhouette */}
+            <div className="relative w-20 h-28 shrink-0 bg-slate-50 rounded-t-[50%] rounded-b-[20%] overflow-hidden border border-slate-100">
+                {/* Dynamic Fill Wave */}
+                <div
+                    className="absolute bottom-0 left-0 w-full bg-emerald-500 transition-all duration-1000 ease-out"
+                    style={{ height: `${percentage}%` }}
+                >
+                    <div className="absolute top-0 left-0 w-[200%] h-4 -translate-y-full bg-emerald-500 opacity-50 animate-[wave_3s_infinite_linear] rounded-[40%]" />
+                </div>
+
+                {/* Agaseke Pattern Overlay */}
+                <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" viewBox="0 0 100 140">
+                    <path d="M50 0 L100 40 L100 140 L0 140 L0 40 Z" fill="none" stroke="currentColor" strokeWidth="2" />
+                    <path d="M20 40 Q50 30 80 40" fill="none" stroke="currentColor" strokeWidth="1" />
+                    <path d="M0 70 L100 70 M0 100 L100 100" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" />
+                </svg>
+            </div>
+
+            <div className="flex flex-col justify-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+                <p className="text-2xl font-black text-slate-900 leading-tight">
+                    {loading ? "..." : `${percentage}% Full`}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight">Community Pride</p>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2 font-medium">Keep saving to grow your future.</p>
+            </div>
+
+            <style jsx>{`
+                @keyframes wave {
+                    from { transform: translateY(-70%) translateX(0); }
+                    to { transform: translateY(-70%) translateX(-50%); }
+                }
+            `}</style>
         </Card>
     );
 }
