@@ -19,7 +19,13 @@ import {
     HandCoins,
     Download,
     FileText,
-    History
+    History,
+    Volume2,
+    Home,
+    GraduationCap,
+    Store,
+    Briefcase,
+    Stethoscope
 } from 'lucide-react';
 
 import { dashboardService } from '@/lib/services/dashboard.service';
@@ -144,8 +150,8 @@ export default function Dashboard() {
         }
     };
 
-    const handleLoanSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleLoanSubmit = async (e: React.FormEvent | null) => {
+        if (e) e.preventDefault();
         setSubmitting(true);
         try {
             const res = await loanService.applyForLoan({
@@ -167,6 +173,24 @@ export default function Dashboard() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const speak = (text: string) => {
+        if (!('speechSynthesis' in window)) return;
+
+        // Cancel any current speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+
+        // Language auto-detect logic
+        if (text.includes("Kanda")) utterance.lang = 'rw-RW';
+        else utterance.lang = 'en-US';
+
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+
+        window.speechSynthesis.speak(utterance);
     };
 
     const handleJoinSubmit = async (e: React.FormEvent) => {
@@ -224,6 +248,13 @@ export default function Dashboard() {
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
                         <PiggyBank className="w-24 h-24 text-white" />
                     </div>
+                    <div
+                        onClick={(e) => { e.stopPropagation(); speak("Kanda hano niba ushaka kubitsa amafaranga yawe."); }}
+                        className="absolute bottom-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/40 transition-colors z-20"
+                        title="In-Ear Assistant (Rwanda)"
+                    >
+                        <Volume2 className="w-5 h-5 text-white animate-pulse" />
+                    </div>
                     <div className="relative z-10 flex flex-col gap-4">
                         <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
                             <PiggyBank className="w-7 h-7 text-white" />
@@ -242,6 +273,12 @@ export default function Dashboard() {
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
                         <HandCoins className="w-24 h-24 text-white" />
                     </div>
+                    <div
+                        onClick={(e) => { e.stopPropagation(); speak("Kanda hano niba ushaka gusaba inguzanyo."); }}
+                        className="absolute bottom-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/40 transition-colors z-20"
+                    >
+                        <Volume2 className="w-5 h-5 text-white animate-pulse" />
+                    </div>
                     <div className="relative z-10 flex flex-col gap-4">
                         <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
                             <HandCoins className="w-7 h-7 text-white" />
@@ -259,6 +296,12 @@ export default function Dashboard() {
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
                         <Users className="w-24 h-24 text-white" />
+                    </div>
+                    <div
+                        onClick={(e) => { e.stopPropagation(); speak("Kanda hano niba ushaka kureba amatsinda yawe."); }}
+                        className="absolute bottom-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/40 transition-colors z-20"
+                    >
+                        <Volume2 className="w-5 h-5 text-white animate-pulse" />
                     </div>
                     <div className="relative z-10 flex flex-col gap-4">
                         <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
@@ -469,24 +512,24 @@ export default function Dashboard() {
                         >
                             {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                         </select>
+
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest px-1">Purpose of Loan</label>
+                            <VisualPurposePicker value={purpose} onChange={(val: string) => setPurpose(val)} />
+                        </div>
+
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="Amount (RWF)"
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-lg"
                             required
                         />
-                        <textarea
-                            value={purpose}
-                            onChange={(e) => setPurpose(e.target.value)}
-                            placeholder="Loan Purpose"
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                            required
-                        />
+
                         <button
                             type="submit"
-                            disabled={submitting}
+                            disabled={submitting || !purpose}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request Loan"}
@@ -657,6 +700,43 @@ function StatCard({ label, value, icon: Icon, color, trend, trendUp }: any) {
                 </div>
             </div>
         </Card>
+    );
+}
+
+// Visual Purpose Picker for Low-Literacy users
+function VisualPurposePicker({ value, onChange }: any) {
+    const purposes = [
+        { id: 'seeds', label: 'Agriculture', kiny: 'Ubuhinzi', icon: <Home className="w-5 h-5" />, color: 'bg-emerald-100 text-emerald-600' },
+        { id: 'house', label: 'Housing', kiny: 'Inzu', icon: <Home className="w-5 h-5" />, color: 'bg-blue-100 text-blue-600' },
+        { id: 'school', label: 'Education', kiny: 'Ishuri', icon: <GraduationCap className="w-5 h-5" />, color: 'bg-indigo-100 text-indigo-600' },
+        { id: 'business', label: 'Business', kiny: 'Ubucuruzi', icon: <Store className="w-5 h-5" />, color: 'bg-amber-100 text-amber-600' },
+        { id: 'health', label: 'Medical', kiny: 'Kwasakura', icon: <Stethoscope className="w-5 h-5" />, color: 'bg-red-100 text-red-600' }
+    ];
+
+    return (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {purposes.map((p) => (
+                <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onChange(p.id)}
+                    className={cn(
+                        "flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all group",
+                        value === p.id
+                            ? "bg-emerald-50 border-emerald-500 scale-105"
+                            : "bg-white border-transparent hover:border-slate-100"
+                    )}
+                >
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors", p.color)}>
+                        {p.icon}
+                    </div>
+                    <div className="text-center">
+                        <p className="text-[9px] font-bold text-slate-800 leading-none">{p.kiny}</p>
+                        <p className="text-[7px] font-medium text-slate-400 hidden sm:block uppercase tracking-tighter mt-0.5">{p.label}</p>
+                    </div>
+                </button>
+            ))}
+        </div>
     );
 }
 
