@@ -23,9 +23,11 @@ import {
     Volume2,
     Home,
     GraduationCap,
-    Store,
+    ShoppingBag,
     Briefcase,
-    Stethoscope
+    Stethoscope,
+    Sprout,
+    Vote
 } from 'lucide-react';
 
 import { dashboardService } from '@/lib/services/dashboard.service';
@@ -33,6 +35,7 @@ import { adminService } from '@/lib/services/admin.service';
 import { savingService } from '@/lib/services/saving.service';
 import { loanService } from '@/lib/services/loan.service';
 import { groupService } from '@/lib/services/group.service';
+import { governanceService } from '@/lib/services/governance.service';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect } from 'react';
@@ -53,6 +56,8 @@ export default function Dashboard() {
     const [reportsData, setReportsData] = useState<any[]>([]);
     const [reportsType, setReportsType] = useState('member_statement');
     const [reportsLoading, setReportsLoading] = useState(false);
+    const [openElection, setOpenElection] = useState<any>(null);
+    const [showVoteModal, setShowVoteModal] = useState(false);
 
     // Form states
     const [groups, setGroups] = useState<any[]>([]);
@@ -97,7 +102,11 @@ export default function Dashboard() {
             if (groupsRes.status === 'fulfilled') {
                 setGroups(groupsRes.value.data);
                 if (groupsRes.value.data.length > 0) {
-                    setSelectedGroupId(groupsRes.value.data[0].id);
+                    const gid = groupsRes.value.data[0].id;
+                    setSelectedGroupId(gid);
+                    // Check for elections
+                    const electRes = await governanceService.getOpenElections(gid);
+                    if (electRes.success) setOpenElection(electRes.data);
                 }
             }
         } catch (error: any) {
@@ -321,6 +330,39 @@ export default function Dashboard() {
                     label="Saving Basket"
                 />
             </div>
+
+            {/* LIVE ELECTION ALERT - High Priority */}
+            {openElection && (
+                <div className="mb-8 p-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 rounded-[2rem] animate-pulse">
+                    <button
+                        onClick={() => setShowVoteModal(true)}
+                        className="w-full bg-white rounded-[1.9rem] p-6 flex flex-col sm:flex-row items-center justify-between gap-6 transition-transform hover:scale-[1.01]"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center">
+                                <Vote className="w-10 h-10 text-amber-600" />
+                            </div>
+                            <div className="text-left">
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-lg uppercase tracking-widest">Election Live</span>
+                                <h2 className="text-xl font-black text-slate-900 mt-1">Vote for New {openElection.role_type.toUpperCase()}!</h2>
+                                <p className="text-sm text-slate-500">Your community is choosing a new leader. Your voice matters.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="flex -space-x-4">
+                                {openElection.candidates.map((c: any, i: number) => (
+                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                        {c.name.charAt(0)}
+                                    </div>
+                                ))}
+                            </div>
+                            <span className="btn-primary py-3 px-8 bg-amber-600 hover:bg-amber-700 border-none shadow-lg shadow-amber-200">
+                                Cast Your Vote
+                            </span>
+                        </div>
+                    </button>
+                </div>
+            )}
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -659,6 +701,60 @@ export default function Dashboard() {
                     </button>
                 </div>
             </Modal>
+
+            {/* VOTE MODAL */}
+            <Modal
+                isOpen={showVoteModal}
+                onClose={() => !submitting && setShowVoteModal(false)}
+                title={`Election: New ${openElection?.role_type?.toUpperCase()}`}
+            >
+                <div className="space-y-6 py-2 text-center">
+                    <p className="text-sm text-slate-500">Choose the member you trust to be the next {openElection?.role_type}.</p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        {openElection?.candidates.map((cand: any) => (
+                            <button
+                                key={cand.member_id}
+                                onClick={async () => {
+                                    setSubmitting(true);
+                                    try {
+                                        await governanceService.vote(openElection.id, cand.member_id);
+                                        setSuccess('vote');
+                                        setTimeout(() => {
+                                            setShowVoteModal(false);
+                                            setSuccess(null);
+                                            fetchSummary();
+                                        }, 2000);
+                                    } catch (err: any) {
+                                        alert(err.message || "Failed to vote");
+                                    } finally {
+                                        setSubmitting(false);
+                                    }
+                                }}
+                                disabled={submitting}
+                                className="p-4 rounded-2xl bg-slate-50 border-2 border-transparent hover:border-amber-400 hover:bg-white transition-all flex items-center justify-between group"
+                            >
+                                <div className="flex items-center gap-4 text-left">
+                                    <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-lg">
+                                        {cand.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">{cand.name}</p>
+                                        <p className="text-xs text-slate-500">{cand.phone}</p>
+                                    </div>
+                                </div>
+                                <div className="w-6 h-6 rounded-full border-2 border-slate-300 group-hover:border-amber-500 flex items-center justify-center">
+                                    <div className="w-3 h-3 rounded-full bg-amber-500 scale-0 group-hover:scale-100 transition-transform" />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    {success === 'vote' && (
+                        <p className="text-emerald-600 font-bold bg-emerald-50 py-2 rounded-lg">Vote cast successfully!</p>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 }
@@ -706,10 +802,10 @@ function StatCard({ label, value, icon: Icon, color, trend, trendUp }: any) {
 // Visual Purpose Picker for Low-Literacy users
 function VisualPurposePicker({ value, onChange }: any) {
     const purposes = [
-        { id: 'seeds', label: 'Agriculture', kiny: 'Ubuhinzi', icon: <Home className="w-5 h-5" />, color: 'bg-emerald-100 text-emerald-600' },
+        { id: 'seeds', label: 'Agriculture', kiny: 'Ubuhinzi', icon: <Sprout className="w-5 h-5" />, color: 'bg-emerald-100 text-emerald-600' },
         { id: 'house', label: 'Housing', kiny: 'Inzu', icon: <Home className="w-5 h-5" />, color: 'bg-blue-100 text-blue-600' },
         { id: 'school', label: 'Education', kiny: 'Ishuri', icon: <GraduationCap className="w-5 h-5" />, color: 'bg-indigo-100 text-indigo-600' },
-        { id: 'business', label: 'Business', kiny: 'Ubucuruzi', icon: <Store className="w-5 h-5" />, color: 'bg-amber-100 text-amber-600' },
+        { id: 'business', label: 'Business', kiny: 'Ubucuruzi', icon: <ShoppingBag className="w-5 h-5" />, color: 'bg-amber-100 text-amber-600' },
         { id: 'health', label: 'Medical', kiny: 'Kwasakura', icon: <Stethoscope className="w-5 h-5" />, color: 'bg-red-100 text-red-600' }
     ];
 

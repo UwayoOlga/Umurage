@@ -198,6 +198,32 @@ db.exec(`
         invitation_sent_at TEXT,
         created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS elections (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+        group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        role_type TEXT NOT NULL CHECK (role_type IN ('admin', 'treasurer', 'secretary')),
+        initiator_member_id TEXT NOT NULL REFERENCES members(id),
+        status TEXT DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED', 'CANCELLED')),
+        starts_at TEXT DEFAULT (datetime('now')),
+        ends_at TEXT,
+        winning_member_id TEXT REFERENCES members(id),
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS election_candidates (
+        election_id TEXT NOT NULL REFERENCES elections(id) ON DELETE CASCADE,
+        member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        PRIMARY KEY (election_id, member_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS votes (
+        election_id TEXT NOT NULL REFERENCES elections(id) ON DELETE CASCADE,
+        voter_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        candidate_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        voted_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (election_id, voter_id)
+    );
 `);
 
 // Run migrations gracefully for existing DBs
