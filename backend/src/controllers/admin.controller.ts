@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import PDFDocument from 'pdfkit';
 import { emailService } from '../services/email.service';
 import db from '../config/database';
 import { AppError } from '../middleware/errorHandler';
@@ -522,5 +523,180 @@ export const getRiskAnalysis = (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('Get risk analysis error:', error);
         res.status(500).json({ success: false, message: 'Server error performing risk analysis' });
+    }
+};
+
+// --- [CUSTOM REPORTING ENGINE] ---
+export const getReports = async (req: AuthRequest, res: Response) => {
+    try {
+        const { type, groupId, memberId } = req.query;
+        const userId = req.user!.id;
+
+        // Fetch requester info
+        const user = db.prepare('SELECT admin_level, managed_location, role FROM users WHERE id = ?').get(userId) as any;
+
+        if (type === 'member_statement') {
+            const memberIdToUse = memberId || userId; // Default to self
+            const transactions = db.prepare(`
+                SELECT t.*, u_from.name as from_name, u_to.name as to_name
+                FROM transactions t
+                LEFT JOIN members m_from ON t.from_member_id = m_from.id
+                LEFT JOIN users u_from ON m_from.user_id = u_from.id
+                LEFT JOIN members m_to ON t.to_member_id = m_to.id
+                LEFT JOIN users u_to ON m_to.user_id = u_to.id
+                WHERE t.from_member_id = ? OR t.to_member_id = ?
+                ORDER BY t.created_at DESC
+            `).all(memberIdToUse, memberIdToUse);
+
+            return res.json({ success: true, data: transactions });
+        }
+
+        if (type === 'group_performance' && groupId) {
+            const stats = db.prepare(`
+                SELECT 
+                    COUNT(m.id) as total_users,
+                    SUM(u.savings_balance) as volume,
+                    (SELECT SUM(amount) FROM loans WHERE group_id = ? AND status = 'overdue') as risks
+                FROM members m
+                JOIN users u ON m.user_id = u.id
+                WHERE m.group_id = ?
+            `).get(groupId, groupId);
+
+            return res.json({ success: true, data: stats });
+        }
+
+        if (type === 'member_performance' && memberId) {
+            // Verify permission (admin/treasurer of the group or regional admin)
+            const target = db.prepare('SELECT group_id, user_id FROM members WHERE id = ?').get(memberId) as any;
+            if (!target) throw new Error('Member not found');
+
+            const isLeader = db.prepare('SELECT role FROM members WHERE group_id = ? AND user_id = ?').get(target.group_id, userId) as any;
+            const isRegAdmin = user.admin_level !== 'none';
+
+            if (!isLeader && !isRegAdmin && target.user_id !== userId) {
+                return res.status(403).json({ success: false, message: 'Unauthorized' });
+            }
+
+            const history = db.prepare(`
+                SELECT type, amount, status, created_at 
+                FROM transactions 
+                WHERE from_member_id = ? OR to_member_id = ? 
+                ORDER BY created_at ASC
+            `).all(memberId, memberId);
+
+            const loans = db.prepare('SELECT * FROM loans WHERE member_id = ?').all(memberId);
+
+            // Calculate metrics
+            const contributions = history.filter((h: any) => h.type === 'contribution');
+            const onTime = contributions.filter((h: any) => h.status === 'completed').length;
+
+            return res.json({
+                success: true,
+                data: {
+                    history,
+                    loans,
+                    stats: {
+                        consistency: contributions.length > 0 ? (onTime / contributions.length) * 100 : 100,
+                        loan_count: loans.length,
+                        active_debt: loans.filter((l: any) => l.status === 'disbursed').reduce((sum: number, l: any) => sum + l.amount, 0)
+                    }
+                }
+            });
+        }
+
+        res.status(400).json({ success: false, message: 'Invalid report type or missing parameters' });
+    } catch (error) {
+        console.error('getReports error:', error);
+        res.status(500).json({ success: false, message: 'Server error generating report' });
+    }
+};
+
+export const downloadReport = async (req: AuthRequest, res: Response) => {
+    try {
+        const { type, groupId, memberId } = req.query;
+        const userId = req.user!.id;
+
+        const user = db.prepare('SELECT name, role FROM users WHERE id = ?').get(userId) as any;
+        const doc = new PDFDocument({ margin: 50 });
+        const filename = `Umurage_Audit_${type}_${Date.now()}.pdf`;
+
+        res.setHeader('Content-disposition', `attachment; filename=${filename}`);
+        res.setHeader('Content-type', 'application/pdf');
+        doc.pipe(res);
+
+        // Header
+        doc.fillColor('#059669').fontSize(24).text('UMURAGE INCLUSIVE', { align: 'center' });
+        doc.fontSize(10).fillColor('#64748b').text('Financial DNA & Community Audit Report', { align: 'center' });
+        doc.moveDown(2);
+        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, 100).lineTo(550, 100).stroke();
+        doc.moveDown(2);
+
+        doc.fillColor('#0f172a').fontSize(12).text(`Generated by: ${user.name} (${user.role})`);
+        doc.text(`Date: ${new Date().toLocaleString()}`);
+        doc.moveDown();
+
+        if (type === 'member_performance' && memberId) {
+            const member = db.prepare(`
+                SELECT m.id, u.name, u.phone, m.role, g.name as group_name 
+                FROM members m JOIN users u ON m.user_id = u.id 
+                JOIN groups g ON m.group_id = g.id 
+                WHERE m.id = ?
+            `).get(memberId) as any;
+
+            if (member) {
+                doc.fontSize(16).fillColor('#059669').text(`Member DNA Detail: ${member.name}`, { underline: true });
+                doc.fontSize(10).fillColor('#475569').text(`ID: ${member.id} | Phone: ${member.phone}`);
+                doc.text(`Community: ${member.group_name} | Role: ${member.role}`);
+                doc.moveDown(2);
+
+                const trans = db.prepare('SELECT type, amount, status, created_at FROM transactions WHERE from_member_id = ? OR to_member_id = ?').all(memberId, memberId);
+                const contributions = trans.filter((t: any) => t.type === 'contribution');
+                const onTime = contributions.filter((t: any) => t.status === 'completed').length;
+                const consistency = contributions.length > 0 ? (onTime / contributions.length) * 100 : 100;
+
+                doc.fontSize(11).fillColor('#0f172a').text(`Consistency Rate: ${consistency.toFixed(1)}%`);
+                doc.text(`Total Transactions: ${trans.length}`);
+                doc.moveDown();
+
+                // Table
+                doc.fontSize(10).font('Helvetica-Bold').text('Date', 50, doc.y);
+                doc.text('Type', 150, doc.y - 12);
+                doc.text('Amount', 300, doc.y - 12);
+                doc.text('Status', 450, doc.y - 12);
+                doc.moveDown(0.5);
+                doc.strokeColor('#cbd5e1').lineWidth(0.5).moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+                doc.moveDown(0.5);
+
+                doc.font('Helvetica').fillColor('#334155');
+                trans.forEach((tx: any) => {
+                    doc.text(new Date(tx.created_at).toLocaleDateString(), 50, doc.y);
+                    doc.text(tx.type, 150, doc.y - 12);
+                    doc.text(`${tx.amount.toLocaleString()} RWF`, 300, doc.y - 12);
+                    doc.text(tx.status, 450, doc.y - 12);
+                    doc.moveDown(0.8);
+                });
+            }
+        } else if (type === 'member_statement') {
+            const memberIdToUse = memberId || userId;
+            const trans = db.prepare('SELECT * FROM transactions WHERE from_member_id = ? OR to_member_id = ?').all(memberIdToUse, memberIdToUse);
+
+            doc.fontSize(16).fillColor('#059669').text(`Personal Financial DNA Statement`, { underline: true });
+            doc.moveDown();
+
+            trans.forEach((tx: any) => {
+                doc.fontSize(10).fillColor('#475569').text(`${new Date(tx.created_at).toLocaleDateString()} - ${tx.type}: ${tx.amount.toLocaleString()} RWF (${tx.status})`);
+            });
+        }
+
+        const bottom = doc.page.height - 70;
+        doc.fontSize(8).fillColor('#94a3b8').text(
+            'This is a digitally generated document by the Umurage platform. Its integrity is verified by the National Bank of Rwanda (BNR) digital audit standards.',
+            50, bottom, { align: 'center', width: 500 }
+        );
+
+        doc.end();
+    } catch (error) {
+        console.error('PDF Download Error:', error);
+        res.status(500).json({ success: false, message: 'Generation failed' });
     }
 };

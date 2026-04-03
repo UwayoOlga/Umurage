@@ -150,10 +150,11 @@ class AdminService {
         return response.json();
     }
 
-    async getReports(type: string, groupId?: string) {
+    async getReports(type: string, groupId?: string, memberId?: string) {
         const params = new URLSearchParams({
             type,
             ...(groupId && { groupId }),
+            ...(memberId && { memberId }),
         });
 
         const response = await fetch(`${API_URL}/admin/reports?${params}`, {

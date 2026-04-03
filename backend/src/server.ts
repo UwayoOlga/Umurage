@@ -10,7 +10,7 @@ import transactionRoutes from './routes/transaction.routes';
 import ussdRoutes from './routes/ussd.routes';
 import adminRoutes from './routes/admin.routes';
 import dashboardRoutes from './routes/dashboard.routes';
-import meetingRoutes from './routes/meeting.routes';
+
 import rotationRoutes from './routes/rotation.routes';
 import governanceRoutes from './routes/governance.routes';
 import { errorHandler } from './middleware/errorHandler';
@@ -50,7 +50,7 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/ussd', ussdRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/meetings', meetingRoutes);
+
 app.use('/api/rotations', rotationRoutes);
 app.use('/api/governance', governanceRoutes);
 

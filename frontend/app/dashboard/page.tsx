@@ -55,6 +55,8 @@ export default function Dashboard() {
     // Reports states
     const [reportsData, setReportsData] = useState<any[]>([]);
     const [reportsType, setReportsType] = useState('member_statement');
+    const [selectedMemberId, setSelectedMemberId] = useState('');
+    const [groupMembers, setGroupMembers] = useState<any[]>([]);
     const [reportsLoading, setReportsLoading] = useState(false);
     const [openElection, setOpenElection] = useState<any>(null);
     const [showVoteModal, setShowVoteModal] = useState(false);
@@ -104,6 +106,11 @@ export default function Dashboard() {
                 if (groupsRes.value.data.length > 0) {
                     const gid = groupsRes.value.data[0].id;
                     setSelectedGroupId(gid);
+
+                    // Fetch group members for leaders to use in reports
+                    const membersRes = await dashboardService.getGroupMemberList(gid);
+                    if (membersRes.success) setGroupMembers(membersRes.data);
+
                     // Check for elections
                     const electRes = await governanceService.getOpenElections(gid);
                     if (electRes.success) setOpenElection(electRes.data);
@@ -146,16 +153,47 @@ export default function Dashboard() {
         }
     };
 
-    const fetchReports = async (type: string) => {
+    const fetchReports = async (type: string, memberId?: string) => {
         setReportsLoading(true);
         setReportsType(type);
+        if (memberId) setSelectedMemberId(memberId);
+
         try {
-            const res = await adminService.getReports(type, selectedGroupId);
+            const res = await adminService.getReports(type, selectedGroupId, memberId || (type === 'member_statement' ? undefined : selectedMemberId));
             setReportsData(res.data);
-        } catch (error) {
-            console.error('Error fetching reports:', error);
         } finally {
             setReportsLoading(false);
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        try {
+            const params = new URLSearchParams({
+                type: reportsType,
+                groupId: selectedGroupId,
+                memberId: selectedMemberId
+            });
+
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+            const response = await fetch(`${apiUrl}/admin/reports/download?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Umurage_Report_${reportsType}_${new Date().getTime()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to generate PDF. Please try again.');
         }
     };
 
@@ -241,10 +279,6 @@ export default function Dashboard() {
                 </div>
                 <div className="hidden md:flex items-center gap-3">
                     <span className="text-sm text-slate-500">{t('dashboard.last_updated')}: {t('dashboard.just_now')}</span>
-                    <button className="btn-primary flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{t('dashboard.schedule_meeting')}</span>
-                    </button>
                 </div>
             </div>
 
@@ -471,19 +505,7 @@ export default function Dashboard() {
                             How to use this app?
                         </button>
                     </Card>
-                    <div className="bg-gradient-to-br from-emerald-800 to-emerald-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Wallet className="w-32 h-32" />
-                        </div>
-                        <h3 className="font-bold text-lg mb-2 relative z-10">Next Meeting</h3>
-                        <p className="text-emerald-100 text-sm mb-4 relative z-10">
-                            Saturday, 12th Feb<br />
-                            10:00 AM - 11:30 AM
-                        </p>
-                        <button className="w-full py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg text-sm font-medium transition-colors relative z-10">
-                            View Agenda
-                        </button>
-                    </div>
+
                 </div>
             </div>
 
@@ -651,7 +673,7 @@ export default function Dashboard() {
             <Modal
                 isOpen={showReportsModal}
                 onClose={() => setShowReportsModal(false)}
-                title="Financial Statements"
+                title="Financial Statements & DNA"
             >
                 <div className="space-y-4">
                     <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
@@ -662,30 +684,77 @@ export default function Dashboard() {
                             Personal
                         </button>
                         {(user?.role === 'admin' || user?.role === 'treasurer') && (
-                            <button
-                                onClick={() => fetchReports('group_performance')}
-                                className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", reportsType === 'group_performance' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")}
-                            >
-                                Group
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => fetchReports('group_performance')}
+                                    className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", reportsType === 'group_performance' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")}
+                                >
+                                    Group
+                                </button>
+                                <button
+                                    onClick={() => { setReportsType('member_performance'); setReportsData(null); }}
+                                    className={cn("flex-1 py-2 text-xs font-bold rounded-lg transition-all", reportsType === 'member_performance' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")}
+                                >
+                                    Member
+                                </button>
+                            </>
                         )}
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                    {reportsType === 'member_performance' && (
+                        <div className="space-y-3">
+                            <select
+                                value={selectedMemberId}
+                                onChange={(e) => fetchReports('member_performance', e.target.value)}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm"
+                            >
+                                <option value="">-- Choose Member to Audit --</option>
+                                {groupMembers.map(m => (
+                                    <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Member Performance Header */}
+                    {reportsType === 'member_performance' && reportsData?.stats && (
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
+                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Consistency</p>
+                                <p className="text-xl font-black text-emerald-900">{reportsData.stats.consistency.toFixed(1)}%</p>
+                            </div>
+                            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Active Debt</p>
+                                <p className="text-xl font-black text-amber-900">{formatCurrency(reportsData.stats.active_debt)}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {reportsLoading ? (
-                            <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-emerald-600" /></div>
-                        ) : reportsData.length === 0 ? (
-                            <p className="text-center py-12 text-slate-400 text-sm">No records found</p>
+                            <div className="py-12 flex flex-col items-center gap-3">
+                                <Loader2 className="animate-spin text-emerald-600 w-8 h-8" />
+                                <p className="text-xs font-bold text-slate-400">Compiling Report...</p>
+                            </div>
+                        ) : !reportsData || (Array.isArray(reportsData) && reportsData.length === 0) ? (
+                            <p className="text-center py-12 text-slate-400 text-sm italic border-2 border-dashed border-slate-50 rounded-3xl">
+                                Select a member or report type to begin.
+                            </p>
                         ) : (
-                            reportsData.map((rpt: any, i: number) => (
-                                <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-800">{rpt.doc_type || 'Record'}</p>
-                                        <p className="text-[10px] text-slate-500">{new Date(rpt.date || rpt.created_at).toLocaleDateString()} • {rpt.type || 'Standard'}</p>
+                            (reportsType === 'member_performance' ? reportsData.history : reportsData).map((rpt: any, i: number) => (
+                                <div key={i} className="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between hover:border-emerald-200 transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("p-2 rounded-lg", rpt.status === 'completed' || rpt.status === 'disbursed' ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500")}>
+                                            <FileText className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800 capitalize">{rpt.type || rpt.doc_type || 'Record'}</p>
+                                            <p className="text-[9px] text-slate-400">{new Date(rpt.date || rpt.created_at).toLocaleDateString()} • {rpt.status || 'Verified'}</p>
+                                        </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-bold text-emerald-700">{formatCurrency(rpt.amount)}</p>
-                                        <Download className="w-3 h-3 text-slate-400 ml-auto mt-1 cursor-pointer hover:text-emerald-600" />
+                                        <p className="text-sm font-black text-slate-900">{formatCurrency(rpt.amount)}</p>
+                                        <Download className="w-3 h-3 text-slate-300 ml-auto mt-1 cursor-pointer hover:text-emerald-600" />
                                     </div>
                                 </div>
                             ))
@@ -693,11 +762,12 @@ export default function Dashboard() {
                     </div>
 
                     <button
-                        onClick={() => window.print()}
-                        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700"
+                        onClick={handleDownloadPDF}
+                        disabled={!reportsData}
+                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg disabled:opacity-50"
                     >
                         <Download className="w-4 h-4" />
-                        Download Full PDF DNA
+                        Download Detailed PDF DNA
                     </button>
                 </div>
             </Modal>

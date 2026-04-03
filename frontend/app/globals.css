@@ -23,8 +23,8 @@
   /* Red 500 */
 
   /* Border Radius */
-  --radius-card: 16px;
-  --radius-button: 12px;
+  --radius-card: 24px;
+  --radius-button: 16px;
 }
 
 :root {
@@ -42,20 +42,47 @@ body {
 .card-soft {
   background: white;
   border-radius: var(--radius-card);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 30px -5px rgba(15, 81, 50, 0.04);
+  border: 1px solid rgba(15, 81, 50, 0.05);
+}
+
+.bg-weave {
+  background-color: #f8fafc;
+  background-image:  linear-gradient(30deg, #e2e8f0 12%, transparent 12.5%, transparent 87%, #e2e8f0 87.5%, #e2e8f0), linear-gradient(150deg, #e2e8f0 12%, transparent 12.5%, transparent 87%, #e2e8f0 87.5%, #e2e8f0), linear-gradient(30deg, #e2e8f0 12%, transparent 12.5%, transparent 87%, #e2e8f0 87.5%, #e2e8f0), linear-gradient(150deg, #e2e8f0 12%, transparent 12.5%, transparent 87%, #e2e8f0 87.5%, #e2e8f0), linear-gradient(60deg, #f1f5f9 25%, transparent 25.5%, transparent 75%, #f1f5f9 75%, #f1f5f9), linear-gradient(60deg, #f1f5f9 25%, transparent 25.5%, transparent 75%, #f1f5f9 75%, #f1f5f9);
+  background-size: 40px 70px;
+  background-position: 0 0, 0 0, 20px 35px, 20px 35px, 0 0, 20px 35px;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
   border-radius: var(--radius-button);
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  padding: 0.875rem 2rem;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-primary:hover {
+  background-color: #0c432a;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -6px rgba(15, 81, 50, 0.25);
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
-  opacity: 0.9;
+  transform: scale(0.97);
+}
+
+.heading-communal {
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  font-weight: 800;
 }

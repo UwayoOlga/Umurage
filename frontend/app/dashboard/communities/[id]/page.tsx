@@ -641,7 +641,7 @@ export default function CommunityDetailsPage() {
                                     onClick={() => {
                                         setContribAmount(summary.myStats.penalties.toString());
                                         setContribType('penalty');
-                                        setContribNotes('Settling unpaid meeting fines');
+                                        setContribNotes('Settling outstanding penalties');
                                         setShowContributeModal(true);
                                     }}
                                     className="mt-6 w-full py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-xl text-xs font-bold transition-all">
@@ -842,7 +842,7 @@ export default function CommunityDetailsPage() {
             </Modal>
 
             {/* CONTRIBUTION MODAL */}
-            <Modal isOpen={showContributeModal} onClose={() => !contribSubmitting && setShowContributeModal(false)} title={contribType === 'penalty' ? "Pay Meeting Fine" : "Make Ikimina Contribution"}>
+            <Modal isOpen={showContributeModal} onClose={() => !contribSubmitting && setShowContributeModal(false)} title={contribType === 'penalty' ? "Pay Outstanding Fine" : "Make Ikimina Contribution"}>
                 <form onSubmit={handleContribute} className="space-y-4">
                     <div className={cn("border p-4 rounded-xl flex items-center gap-3 mb-2",
                         contribType === 'penalty' ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100")}>

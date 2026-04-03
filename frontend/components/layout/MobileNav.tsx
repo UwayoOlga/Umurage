@@ -24,7 +24,7 @@ export function MobileNav() {
     const navItems = [
         { label: t('common.dashboard'), href: "/dashboard", icon: LayoutDashboard },
         { label: t('common.communities'), href: "/dashboard/communities", icon: Layers },
-        { label: t('common.meetings'), href: "/dashboard/meetings", icon: Calendar },
+
         { label: t('common.savings'), href: "/dashboard/savings", icon: PiggyBank },
         { label: t('common.loans'), href: "/dashboard/loans", icon: Banknote },
     ];

@@ -101,14 +101,7 @@ db.exec(`
         updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS loan_resolutions (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
-        loan_id TEXT NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
-        member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-        status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
-        signed_at TEXT,
-        UNIQUE(loan_id, member_id)
-    );
+
 
     CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
@@ -124,33 +117,7 @@ db.exec(`
         created_at TEXT DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS meetings (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
-        group_id TEXT REFERENCES groups(id) ON DELETE CASCADE,
-        scheduled_for TEXT NOT NULL,
-        async_cutoff_time TEXT NOT NULL,
-        location TEXT,
-        status TEXT DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'ACTIVE', 'COMPLETED', 'CANCELLED')),
-        notes TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-    );
 
-    CREATE TABLE IF NOT EXISTS attendance (
-        meeting_id TEXT REFERENCES meetings(id) ON DELETE CASCADE,
-        member_id TEXT REFERENCES members(id) ON DELETE CASCADE,
-        status TEXT DEFAULT 'PRESENT' CHECK (status IN ('PRESENT', 'ABSENT', 'EXCUSED')),
-        UNIQUE(meeting_id, member_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS agenda_items (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
-        meeting_id TEXT REFERENCES meetings(id) ON DELETE CASCADE,
-        type TEXT CHECK (type IN ('CONTRIBUTION_SUMMARY', 'LOAN_APPROVAL', 'DISCUSSION_POINT')),
-        description TEXT,
-        resolved BOOLEAN DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now'))
-    );
 
     CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
     CREATE INDEX IF NOT EXISTS idx_members_group ON members(group_id);
@@ -160,7 +127,7 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status);
     CREATE INDEX IF NOT EXISTS idx_transactions_group ON transactions(group_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
-    CREATE INDEX IF NOT EXISTS idx_meetings_group ON meetings(group_id);
+
 
     CREATE TABLE IF NOT EXISTS rotations (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
